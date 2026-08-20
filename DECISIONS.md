@@ -378,3 +378,36 @@ The Duke Energy community solar item (`"Implement first Duke Energy community so
 Fixture (`tests/fixtures/stpete_commitment/st_petes_commitment.html`) recorded live via the crawler's own `fetch()` (robots.txt checked — 404, no restrictions declared — rate-limited, honest User-Agent — no change to `BaseCrawler`). 12 new tests added (real-fixture shape, tier-label mapping, Duke Energy item content, off-host-link capture, on-host relative-link resolution, 5 fail-loud structure-failure cases including the missing-Duke-Energy-item case, 1 end-to-end mocked `crawl()` case).
 Why: Forcing this page through `parse_program_detail_page()` would have silently mismatched on the missing in-region `<h1>` and the multi-block container; forcing it through the ARPA parser's `<strong>`-amount-paragraph assumption would have found nothing at all (this page has no dollar amounts). A parser keyed on the page's own real signal — F/A/M-tiered `<li>` items under `<h4>` sector headings — is the same "match what's actually there, don't guess" discipline DECISIONS #45 already established for pages that don't fit the h2-sectioned template.
 Date: 2026-08-20
+
+## #48 — Two new Tier-1 sources added: St. Petersburg Housing Authority (`stpeteha.org`) and Pinellas County Housing & Community Development (`pinellas.gov`)
+Decision: Per Amber's request to explore sources beyond the closed DECISIONS #11 list, live recon (2026-08-20, generic fetch, not yet via `BaseCrawler`) identified two new agencies — separate legal entities from the City of St. Petersburg, each with real, structured, on-domain program/grant content — and named exact URLs for each, same discipline as every prior source addition.
+
+**St. Petersburg Housing Authority** (new host: `www.stpeteha.org`) — a public housing authority, legally separate from the City. Recon confirmed real content: a live $842K HUD Capital Fund award and a $104K Family Self-Sufficiency grant reported on its news pages. 9 named pages, chosen from the site's real navigation (69 links found; the 9 below are the program/funding-relevant subset — board portals, staff/careers, calendar, contact/directions, testimonials, and photo galleries are excluded as administrative, not data-bearing):
+- `https://www.stpeteha.org/housing`
+- `https://www.stpeteha.org/public-housing-clients`
+- `https://www.stpeteha.org/affordable-housing-clients`
+- `https://www.stpeteha.org/section-8-hcv-voucher-holder`
+- `https://www.stpeteha.org/fss-program`
+- `https://www.stpeteha.org/homeownership`
+- `https://www.stpeteha.org/news` (index — this is where dated grant-award announcements like the two above are published; individual news-item pages are NOT separately named here, treat as a future round if the index itself proves valuable)
+- `https://www.stpeteha.org/annual-plans`
+- `https://www.stpeteha.org/performance-report`
+
+**Pinellas County Housing & Community Development** (new host: `pinellas.gov` — note the county's site migrated off the old `pinellascounty.org` domain found in initial search results; `pinellascounty.org` URLs 301-redirect here and are NOT the host to allow-list). The department's own filtered program index (`pinellas.gov/programs/?_department_archive=housing-and-community-development`) was used as the scoping anchor — same approach as DECISIONS #11's original stpete.org index page — rather than the site's global navigation, which returned 319 unrelated links (Sheriff, Tax Collector, parking permits, etc.) and is explicitly NOT a valid scoping source. 11 named pages:
+- `https://pinellas.gov/department/housing-and-community-development/` (department overview)
+- `https://pinellas.gov/programs/ayuda-pago-inicial/`
+- `https://pinellas.gov/programs/community-development-neighborhood-stabilization-program/`
+- `https://pinellas.gov/programs/florida-state-housing-initiatives-partnership-program/`
+- `https://pinellas.gov/programs/home-investment-partnerships-program/`
+- `https://pinellas.gov/programs/home-repair-loan-program/`
+- `https://pinellas.gov/programs/independent-living-program/`
+- `https://pinellas.gov/programs/lealman-commercial-improvement-grant-program/`
+- `https://pinellas.gov/programs/lealman-residential-improvement-grant-program/`
+- `https://pinellas.gov/programs/pinellas-county-hurricane-home-repair-program/`
+- `https://pinellas.gov/programs/programas-de-prestamo-para-la-reparacion-de-viviendas-y-de-vida-independiente-revision-in-progress/`
+
+Two of these (`ayuda-pago-inicial`, `programas-de-prestamo-...`) are Spanish-language pages; a live news item (`pinellas.gov/news/pinellas-reopens-home-repair-program-offering-up-to-75000-in-assistance/`) confirms real recent dollar figures exist in this program family (up to $75,000 in home-repair assistance) but that specific news URL is NOT named in this entry — only the 11 program/department pages above are authorized.
+
+This entry does not authorize following any links found on any of these 20 pages, does not authorize the SPHA news-item pages or the Pinellas County news-item page mentioned above, and does not authorize a general sweep of either site beyond what's named — same hard-stop discipline as every DECISIONS #30/#35/#38/#41/#43/#46 round before it.
+Why: Amber asked to explore for sources that would strengthen the corpus for the real CBA negotiation. Both agencies are legally distinct from the City of St. Petersburg (already covered) and Pinellas County BCC (already covered via Legistar) — genuinely new ground, not overlap — with real, recent, dollar-denominated program data confirmed live before authorization, not assumed from search snippets.
+Date: 2026-08-20
