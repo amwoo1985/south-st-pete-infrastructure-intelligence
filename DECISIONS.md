@@ -75,3 +75,28 @@ Date: 2026-08-19
 Decision: Use OpenAI for all three model-dependent pieces this cycle — embeddings, Granicus meeting transcription, and RAG-answer generation. One account, one API key, one bill.
 Why: Anthropic (Claude) doesn't offer a public embeddings API or a speech-to-text product — both are OpenAI-only among Amber's existing accounts (Anthropic/Claude and OpenAI/ChatGPT). Generation is the only piece where Claude was actually a live option; going all-OpenAI this cycle minimizes moving parts for a solo 9-day build. Swapping the generation model to Claude later is a small, decoupled change (one phase, doesn't touch embeddings/retrieval/transcription) if revisited.
 Date: 2026-08-19
+
+## #14 — HTTP client library for crawlers: `requests`, not `httpx`
+Decision: All crawler HTTP fetching (`app/crawlers/base.py`) uses the synchronous `requests` library.
+Why: `requests` was already present and working in the project `.venv`; an attempted `httpx` install resolved to a broken package in this environment (`import httpx` failed). Crawlers here run as sequential, rate-limited, one-request-at-a-time jobs against a handful of government sites — there's no concurrency workload that would justify `httpx`'s async client. Simplicity over a marginal capability this project doesn't need.
+Date: 2026-08-20
+
+## #15 — Crawler rate-limit interval: 2.0 seconds minimum per host
+Decision: `app/crawlers/base.py`'s `RateLimiter` enforces a minimum 2.0-second gap between requests to the same host by default, real `time.sleep`-based throttling, not a documented convention.
+Why: None of the Tier-1/1.5 sources publish a documented crawl-delay in `robots.txt` (Legistar has no `robots.txt` at all — confirmed via a live fetch returning HTTP 404 during Day 2 recon). Absent a stated rate, 2.0s is a conservative, clearly-non-hammering default for a small government site's infrastructure, cheap to raise later if a source proves more tolerant or needs to be slower.
+Date: 2026-08-20
+
+## #16 — robots.txt verification: stdlib `urllib.robotparser`, fail loud when unverifiable
+Decision: `RobotsChecker` in `app/crawlers/base.py` fetches and parses `robots.txt` per host using Python's built-in `urllib.robotparser.RobotFileParser`, through the same rate-limited, honestly-user-agented request path as every other fetch. A `404` on `robots.txt` is treated as "no restrictions declared" (standard convention). Any other fetch failure (timeout, 5xx, etc.) raises `RobotsError` instead of defaulting to "allowed."
+Why: `robotparser` is stdlib — no new dependency for a well-solved, standard problem. Distinguishing "confirmed no restrictions" from "couldn't verify" matters: silently treating a fetch failure as permission would violate the "check it, don't assume" rule in `.claude/rules/crawler.md` even though it's a narrow edge case.
+Date: 2026-08-20
+
+## #17 — Closed source list enforced in code, not just by convention
+Decision: `app/crawlers/base.py` defines `ALLOWED_SOURCE_HOSTS`, mirroring DECISIONS #11's Tier-1/Tier-1.5 hosts exactly. `BaseCrawler.fetch()` raises `ScopeViolationError` before any request whose host isn't in that set.
+Why: `.claude/rules/crawler.md` states its job is to make silent scope creep "structurally awkward, not just discouraged." A code-level allow-list checked on every fetch — rather than trusting each crawler module to only ever call the right URLs — is the structural version of that rule, and gives `crawler-review` a single place to verify DECISIONS #11 compliance instead of auditing every call site.
+Date: 2026-08-20
+
+## #18 — Attribution metadata shape: frozen dataclass, `published_date` nullable
+Decision: `app/crawlers/base.py`'s `Attribution` dataclass carries `source_url: str`, `retrieval_timestamp: datetime` (always set, UTC, tz-aware, non-nullable), and `published_date: date | None = None`.
+Why: `.claude/rules/crawler.md` mandates all three fields on every item; `.claude/rules/data.md` mandates nullable-over-sentinel for values not yet known at capture time. `retrieval_timestamp` is always knowable the instant a fetch happens, so it's required. `published_date` (the meeting/effective date) depends on a source's parse succeeding, so it's `Optional` rather than defaulting to a magic placeholder like `1970-01-01`.
+Date: 2026-08-20
