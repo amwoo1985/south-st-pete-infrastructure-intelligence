@@ -188,3 +188,46 @@ Date: 2026-08-20
 Decision: `app/crawlers/stpete_grant_categories.py`'s `parse_sunrise_page()` parses the page's 5 "Active Programs" tiles using the same `div.v2-tiles-con`/`div.v2-tile` selectors as the 4 hub pages (DECISIONS #32), but additionally extracts each tile's 2 extra `<p>` elements beyond the (still-empty) `.v2-tile-caption`: a `<p><em>...</em></p>` classified as `eligibility`, and a plain `<p>` classified as `description`. Both are `None` for a tile that omits one (nullable, not a fail-loud condition) — DECISIONS #32 already established that a caption-only tile is a legitimate stpete.org state, not necessarily broken markup. The page's page-level "$159.8 million in federal funding" total and its FAQ prose are not extracted as structured data — they're page-level context, not a per-program figure.
 Why: Live recon confirmed all 5 tiles share this exact extra-paragraph shape, unlike the 4 hub pages where every tile's markup stops at the caption. Reusing the existing tile-container/tile selectors (rather than a third from-scratch parser) keeps the DECISIONS #27/#28/#32 tile-grid handling as the one source of truth for that part of the markup; only the "what's inside `.v2-tile-info`" extraction differs. Classifying by `<em>` presence rather than paragraph position/count is robust to a tile that has only one extra paragraph (eligibility or description, not necessarily both) without a structural guess about ordering.
 Date: 2026-08-20
+
+## #35 — stpete.org scope expanded a third directory level: 22 named per-program pages linked from the 4 DECISIONS #32 hub pages
+Decision: The stpete.org source is expanded again, this time to the specific per-program pages that DECISIONS #32's 4 hub pages (business/community/housing/youth) link to. Confirmed live on 2026-08-20 via the hub-page crawler itself. Named, in full:
+
+From `business.php` (3):
+- `https://www.stpete.org/residents/grants___loans/for_business_owners.php`
+- `https://www.stpete.org/residents/grants___loans/for_developers.php`
+- `https://www.stpete.org/residents/grants___loans/for_property_owners.php`
+
+From `community.php` (8 of 9 — see exclusion below):
+- `https://www.stpete.org/residents/grants___loans/arts_grants_program.php`
+- `https://www.stpete.org/residents/grants___loans/community_food_grant_program.php`
+- `https://www.stpete.org/residents/grants___loans/individual_artist_grant.php`
+- `https://www.stpete.org/residents/grants___loans/level_up_arts_grant.php`
+- `https://www.stpete.org/residents/grants___loans/mayors_neighborhood_mini-grant_program.php`
+- `https://www.stpete.org/residents/grants___loans/mlk_communities_in_action_mini-grant_program.php`
+- `https://www.stpete.org/residents/grants___loans/neighborhood_partnership_matching_grants.php`
+- `https://www.stpete.org/residents/grants___loans/social_action_funding.php`
+- `https://www.stpete.org/residents/grants___loans/stormwater_utility_fee_credits.php`
+
+From `housing.php` (7 of 9 — see exclusions below):
+- `https://www.stpete.org/residents/housing/developers/affordable_housing_lot_disposition_program.php`
+- `https://www.stpete.org/residents/housing/developers/consolidated_plan.php`
+- `https://www.stpete.org/residents/grants___loans/purchase_assistance_program.php`
+- `https://www.stpete.org/residents/housing/homeowners/housing_rehabilitation_assistance_program.php`
+- `https://www.stpete.org/residents/grants___loans/multi-family_rental_loan_program.php`
+- `https://www.stpete.org/residents/grants___loans/rebates_for_affordable_residential_rehabs.php`
+- `https://www.stpete.org/residents/sustainability/solar.php`
+
+From `youth.php` (4):
+- `https://www.stpete.org/residents/grants___loans/community_impact_summer_enhancement_grant.php`
+- `https://www.stpete.org/residents/grants___loans/education_youth_opportunity_grants.php`
+- `https://www.stpete.org/residents/grants___loans/youth_development_grants.php`
+- `https://www.stpete.org/government/initiatives___programs/youth_opportunity_grants.php`
+
+**Explicitly excluded, not part of this entry's grant:**
+- `housing.php`'s links to `for_south_stpete.php` and `sunrise_st._pete/index.php` — these are DECISIONS #30/#33/#34's pages, already crawled; not duplicated as new targets.
+- `community.php`'s "Police Forfeiture Grants Program" link to `https://police.stpete.org/forfeitureGrantProgram/` — a different subdomain (`police.stpete.org`, not `www.stpete.org`). Per DECISIONS #11's own "named and finite" logic, a different subdomain is a conscious new-source decision, not a silent inclusion. Deferred; needs its own future DECISIONS entry if wanted, same as PSC/GovTrack in #11.
+
+**This entry does not pre-authorize a fourth directory level.** If any of these 22 pages turn out to be further hub pages rather than the actual program-detail content, flag as a blocker per the same DECISIONS #30 pattern — do not follow further links without another explicit entry.
+
+Why: Amber asked for a 4th round specifically to recover real per-program data (amounts, deadlines, eligibility) that DECISIONS #32 found missing from the 4 hub pages. Enumerating the full, actual link set per hub page (rather than "crawl whatever business.php links to") keeps the same closed/finite/code-enforceable discipline as #11/#17/#30 — the crawler's `ALLOWED_SOURCE_HOSTS`/URL check can be built against this exact list, and any drift (a hub page gaining a new tile later) is a visible, reviewable diff against this entry, not silent scope creep.
+Date: 2026-08-20
