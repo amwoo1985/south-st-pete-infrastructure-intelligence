@@ -55,6 +55,7 @@ ALLOWED_SOURCE_HOSTS = frozenset(
         "www.stpete.org",  # Tier 1 — the 6 category sub-pages named in DECISIONS #30
         "pinellascf.org",  # Tier 1 — Pinellas Community Foundation grants
         "stpete.granicus.com",  # Tier 1.5 — City Council via Granicus (#12)
+        "www.stpeteha.org",  # Tier 1 — St. Petersburg Housing Authority, the 9 pages named in DECISIONS #48/#49
     }
 )
 
