@@ -51,7 +51,8 @@ DEFAULT_TIMEOUT_SECONDS = 30
 ALLOWED_SOURCE_HOSTS = frozenset(
     {
         "pinellas.legistar.com",  # Tier 1 — Pinellas County BCC (Legistar)
-        "stpete.org",  # Tier 1 — City of St. Petersburg grants/loans
+        "stpete.org",  # Tier 1 — City of St. Petersburg grants/loans (index page, DECISIONS #11)
+        "www.stpete.org",  # Tier 1 — the 6 category sub-pages named in DECISIONS #30
         "pinellascf.org",  # Tier 1 — Pinellas Community Foundation grants
         "stpete.granicus.com",  # Tier 1.5 — City Council via Granicus (#12)
     }
