@@ -411,3 +411,9 @@ Two of these (`ayuda-pago-inicial`, `programas-de-prestamo-...`) are Spanish-lan
 This entry does not authorize following any links found on any of these 20 pages, does not authorize the SPHA news-item pages or the Pinellas County news-item page mentioned above, and does not authorize a general sweep of either site beyond what's named — same hard-stop discipline as every DECISIONS #30/#35/#38/#41/#43/#46 round before it.
 Why: Amber asked to explore for sources that would strengthen the corpus for the real CBA negotiation. Both agencies are legally distinct from the City of St. Petersburg (already covered) and Pinellas County BCC (already covered via Legistar) — genuinely new ground, not overlap — with real, recent, dollar-denominated program data confirmed live before authorization, not assumed from search snippets.
 Date: 2026-08-20
+
+## #49 — `www.stpeteha.org` added to `ALLOWED_SOURCE_HOSTS`
+Decision: `app/crawlers/base.py`'s `ALLOWED_SOURCE_HOSTS` now includes `www.stpeteha.org` alongside the existing `stpete.org`/`www.stpete.org`/`pinellascf.org`/`pinellas.legistar.com`/`stpete.granicus.com` entries.
+Why: DECISIONS #48 names 9 exact `www.stpeteha.org` URLs (St. Petersburg Housing Authority) as a new Tier-1 source. `BaseCrawler.fetch()`'s scope check raises `ScopeViolationError` on any host not in this frozenset, so those 9 URLs cannot be fetched at all until the host is explicitly allow-listed — same additive, one-line, DECISIONS-entry-first discipline DECISIONS #31 established for `www.stpete.org`. This is additive only; no other host in the set is touched, and `pinellas.gov` (DECISIONS #48's second new source) is deliberately not added here — that host is a separate agent's scope, sequenced after this one in the same working directory.
+Date: 2026-08-20
+
