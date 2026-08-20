@@ -24,9 +24,12 @@ from app.crawlers.stpete_program_details import (
     FOR_BUSINESS_OWNERS_URL,
     FOR_DEVELOPERS_URL,
     FOR_PROPERTY_OWNERS_URL,
+    FURTHER_HUB_DETAIL_URLS,
     GOV_YOUTH_OPPORTUNITY_GRANTS_URL,
+    GROW_SMARTER_URL,
     HOUSING_REHABILITATION_ASSISTANCE_URL,
     INDIVIDUAL_ARTIST_GRANT_URL,
+    LEGACY_BUSINESS_PROGRAM_URL,
     LEVEL_UP_ARTS_GRANT_URL,
     MAYORS_NEIGHBORHOOD_MINI_GRANT_URL,
     MLK_COMMUNITIES_IN_ACTION_URL,
@@ -38,6 +41,7 @@ from app.crawlers.stpete_program_details import (
     SOCIAL_ACTION_FUNDING_URL,
     SOLAR_URL,
     STORMWATER_UTILITY_FEE_CREDITS_URL,
+    TAX_INCENTIVES_URL,
     YOUTH_DEVELOPMENT_GRANTS_URL,
     StpeteProgramDetailsCrawler,
 )
@@ -182,6 +186,115 @@ def test_solar_two_named_sub_programs_preserved_verbatim():
 
     headings = [s.heading for s in page.sections]
     assert headings == ["Solar Co-Ops", "Switch Together Program"]
+
+
+# --- DECISIONS #38: the 3 further-hub-linked pages, same template ----------
+
+FURTHER_HUB_DETAIL_CASES = [
+    ("grow_smarter.html", GROW_SMARTER_URL, 2),
+    ("legacy_business_program.html", LEGACY_BUSINESS_PROGRAM_URL, 5),
+    ("tax_incentives.html", TAX_INCENTIVES_URL, 5),
+]
+
+
+def test_further_hub_detail_cases_cover_all_3_decisions_38_urls():
+    assert {url for _, url, _ in FURTHER_HUB_DETAIL_CASES} == set(FURTHER_HUB_DETAIL_URLS)
+    assert len(FURTHER_HUB_DETAIL_URLS) == 3
+
+
+@pytest.mark.parametrize("fixture_name,url,expected_section_count", FURTHER_HUB_DETAIL_CASES)
+def test_parse_further_hub_detail_page_real_fixture(fixture_name, url, expected_section_count):
+    html = load_fixture(fixture_name)
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, url)
+
+    assert page.page_title
+    assert page.page_url == url
+    assert len(page.sections) == expected_section_count
+    for section in page.sections:
+        assert section.heading
+        for sub in section.subsections:
+            assert sub.heading
+        for link in section.links:
+            assert link.startswith("http") or link.startswith("tel:") or link.startswith("mailto:")
+
+    assert page.attribution.source_url == url
+    assert page.attribution.retrieval_timestamp.tzinfo is not None
+    assert page.attribution.published_date is None
+
+
+def test_grow_smarter_real_amounts_and_document_links():
+    html = load_fixture("grow_smarter.html")
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, GROW_SMARTER_URL)
+
+    overview = next(s for s in page.sections if s.heading == "Grant Overview")
+    assert overview.text is not None and "$3,000" in overview.text
+
+    documents = next(s for s in page.sections if s.heading == "Documents")
+    assert any(link.endswith(".pdf?t=202603171126100") for link in documents.links)
+
+
+def test_tax_incentives_5_distinct_incentive_programs_preserved_verbatim():
+    """tax_incentives.php's 5 <h2>s each name a distinct incentive program
+    (not a generic section label), each with its own nested <h3>'Overview'/
+    <h4>'Documents' pair - same DECISIONS #37 ambiguous-<h2> shape as
+    solar.php, confirmed live. Headings preserved as-is."""
+    html = load_fixture("tax_incentives.html")
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, TAX_INCENTIVES_URL)
+
+    headings = [s.heading for s in page.sections]
+    assert headings == [
+        "Ad Valorem Tax Exemption",
+        "Brownfield Redevelopment Bonus",
+        "Capital Investment Tax Credit (CITC)",
+        "Reduced Transportation Impact Fee",
+        "Urban Job Tax Credit",
+    ]
+    citc = next(s for s in page.sections if s.heading == "Capital Investment Tax Credit (CITC)")
+    overview = next(sub for sub in citc.subsections if sub.heading == "Overview")
+    assert overview.text is not None and "corporate income tax" in overview.text
+    # Every section's own "Documents" <h4> folds into its "Overview" <h3>'s
+    # text rather than becoming its own boundary - same fold behavior as
+    # DECISIONS #37's housing_rehabilitation_assistance_program.php case.
+    for section in page.sections:
+        assert [sub.heading for sub in section.subsections] == ["Overview"]
+
+
+def test_legacy_business_program_district_h4s_fold_into_2026_finalists_h3():
+    """legacy_business_program.php nests 6 <h4> district headings under the
+    <h3> '2026 Finalists' (itself under the <h2> '2026 Honorees') - folded
+    into that subsection's text, same fold behavior as DECISIONS #37,
+    confirmed live to repeat across multiple <h4>s rather than just one."""
+    html = load_fixture("legacy_business_program.html")
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, LEGACY_BUSINESS_PROGRAM_URL)
+
+    honorees = next(s for s in page.sections if s.heading == "2026 Honorees")
+    finalists = next(sub for sub in honorees.subsections if sub.heading == "2026 Finalists")
+    assert finalists.text is not None
+    for district in ("District 1:", "District 2:", "District 4:", "District 6:", "District 7:", "District 8:"):
+        assert district in finalists.text
+
+
+# --- crawl_further_hub_detail_pages() end-to-end against mocked HTTP -------
+
+
+@responses.activate
+def test_crawl_further_hub_detail_pages_fetches_and_parses_all_3():
+    register_robots_permissive(responses, host="www.stpete.org")
+    fixture_by_url = dict(zip((url for _, url, _ in FURTHER_HUB_DETAIL_CASES), (f for f, _, _ in FURTHER_HUB_DETAIL_CASES)))
+    for url in FURTHER_HUB_DETAIL_URLS:
+        responses.add(responses.GET, url, body=load_fixture(fixture_by_url[url]), status=200)
+
+    crawler = make_crawler()
+    results = crawler.crawl_further_hub_detail_pages()
+
+    assert set(results.keys()) == set(FURTHER_HUB_DETAIL_URLS)
+    for url, page in results.items():
+        assert page.page_url == url
+        assert page.sections
 
 
 # --- Fail-loud: structure-parsing failures ----------------------------------
