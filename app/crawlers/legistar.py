@@ -23,6 +23,7 @@ also observed — that case has no detail URL and is not a parsing failure.
 from __future__ import annotations
 
 import io
+import json
 import re
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
@@ -37,6 +38,38 @@ from app.crawlers.base import Attribution, BaseCrawler
 CALENDAR_URL = "https://pinellas.legistar.com/Calendar.aspx"
 
 CALENDAR_TABLE_ID = "ctl00_ContentPlaceHolder1_gridCalendar_ctl00"
+
+# The calendar's "Date Range Dropdown List" (id=lstYears) options, confirmed
+# by live recon 2026-08-20. The default page load is equivalent to "This
+# Month" and, being the current/near-future window, rarely has any meeting
+# with posted minutes yet - Legistar posts minutes only after a later
+# meeting approves them. Querying a past range (e.g. a specific year) is
+# required to exercise the minutes-link extraction path against real data.
+CALENDAR_DATE_RANGE_OPTIONS = (
+    "All Years",
+    "2026",
+    "2025",
+    "2024",
+    "2023",
+    "2022",
+    "2021",
+    "2020",
+    "2019",
+    "2018",
+    "2017",
+    "2016",
+    "2015",
+    "Last Year",
+    "Last Month",
+    "Last Week",
+    "This Year",
+    "This Month",
+    "This Week",
+    "Today",
+    "Next Week",
+    "Next Month",
+    "Next Year",
+)
 
 # Header text that must still be present for the parser to trust the
 # column layout below. If Legistar reorders/renames columns, this trips
@@ -117,12 +150,113 @@ class LegistarCrawler(BaseCrawler):
     def __init__(self, **kwargs) -> None:
         super().__init__(source_name="legistar", **kwargs)
 
-    def crawl(self, resolve_agenda: bool = True) -> list[LegistarMeeting]:
-        resp = self.fetch(CALENDAR_URL)
+    def crawl(
+        self, date_range: str = "This Month", resolve_agenda: bool = True
+    ) -> list[LegistarMeeting]:
+        """Fetch and parse the calendar grid. ``date_range`` selects the
+        "Date Range Dropdown List" filter (see CALENDAR_DATE_RANGE_OPTIONS);
+        "This Month" (the default page load) is the crawler's normal
+        steady-state behavior for finding new/upcoming meetings. A past
+        range (e.g. "2025") is how already-occurred meetings - the ones
+        that can actually have posted minutes - get queried."""
+        if date_range == "This Month":
+            resp = self.fetch(CALENDAR_URL)
+        else:
+            resp = self._fetch_calendar_for_date_range(date_range)
         meetings = self.parse_calendar(resp.text)
         if resolve_agenda:
             meetings = [self.resolve_agenda_content(m) for m in meetings]
         return meetings
+
+    def _fetch_calendar_for_date_range(self, date_range: str):
+        """Legistar's date-range filter is a Telerik RadComboBox inside an
+        ASP.NET WebForms postback, not a query-string parameter - there is
+        no ``Calendar.aspx?Year=2025``-style GET. Replicating it means: GET
+        the page once to obtain the current __VIEWSTATE/__EVENTVALIDATION
+        and every other control's current value, then POST that same field
+        set back with the year dropdown's value overridden and the "Search
+        Calendar" button's field included, exactly like a real browser
+        submission would produce."""
+        if date_range not in CALENDAR_DATE_RANGE_OPTIONS:
+            raise ValueError(
+                f"unknown date_range {date_range!r}; expected one of "
+                f"{CALENDAR_DATE_RANGE_OPTIONS}"
+            )
+
+        initial = self.fetch(CALENDAR_URL)
+        soup = BeautifulSoup(initial.text, "lxml")
+        form = soup.find("form")
+        if form is None:
+            self.fail_loud(
+                f"no <form> found on {CALENDAR_URL} - cannot build the "
+                "date-range postback"
+            )
+
+        postback_data = self._extract_postback_fields(form)
+        postback_data["ctl00$ContentPlaceHolder1$lstYears"] = date_range
+        postback_data["ctl00_ContentPlaceHolder1_lstYears_ClientState"] = json.dumps(
+            {
+                "logEntries": [],
+                "value": date_range,
+                "text": date_range,
+                "enabled": True,
+                "checkedIndices": [],
+                "checkedItemsTextOverflows": False,
+            }
+        )
+        postback_data["ctl00$ContentPlaceHolder1$btnSearch"] = "Search Calendar"
+
+        resp = self.fetch(CALENDAR_URL, method="POST", data=postback_data)
+        self._verify_date_range_applied(resp.text, date_range)
+        return resp
+
+    def _verify_date_range_applied(self, html: str, date_range: str) -> None:
+        """Confirms the postback actually changed the filter server-side,
+        rather than trusting a 200 OK. If Legistar ever renames the
+        lstYears control's IDs, the hardcoded field names above would stop
+        matching anything real - the postback would silently no-op and
+        return the default "This Month" data mislabeled as date_range's
+        results. That's a wrong-data failure, not an empty one, so it needs
+        its own explicit check rather than relying on the general
+        fail-loud table/header checks in parse_calendar."""
+        soup = BeautifulSoup(html, "lxml")
+        echoed = soup.find(id="ctl00_ContentPlaceHolder1_lstYears_Input")
+        echoed_value = echoed.get("value") if echoed is not None else None
+        if echoed_value != date_range:
+            self.fail_loud(
+                f"date_range postback for {date_range!r} did not take effect "
+                f"(lstYears_Input echoed {echoed_value!r}) - Legistar's "
+                "calendar filter controls may have changed"
+            )
+
+    @staticmethod
+    def _extract_postback_fields(form: Tag) -> dict[str, str]:
+        """Snapshot every current control value in the calendar <form> so a
+        filtered postback carries the same field set a real browser
+        submission would - required for ASP.NET WebForms viewstate/
+        eventvalidation to accept the request."""
+        data: dict[str, str] = {}
+        for inp in form.find_all("input"):
+            name = inp.get("name")
+            if not name:
+                continue
+            input_type = (inp.get("type") or "text").lower()
+            if input_type == "submit":
+                continue
+            if input_type in ("checkbox", "radio"):
+                if inp.has_attr("checked"):
+                    data[name] = inp.get("value", "on")
+                continue
+            data[name] = inp.get("value", "")
+
+        for select in form.find_all("select"):
+            name = select.get("name")
+            if not name:
+                continue
+            option = select.find("option", selected=True) or select.find("option")
+            data[name] = option.get("value", option.get_text(strip=True)) if option else ""
+
+        return data
 
     def parse_calendar(self, html: str) -> list[LegistarMeeting]:
         soup = BeautifulSoup(html, "lxml")
