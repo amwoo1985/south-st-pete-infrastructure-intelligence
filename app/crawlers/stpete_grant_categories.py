@@ -56,7 +56,14 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from app.crawlers.base import Attribution, BaseCrawler
-from app.crawlers.stpete_grants import StpeteGrantCategory, StpeteGrantsCrawler
+from app.crawlers.stpete_grants import (
+    TILE_CAPTION_CLASS,
+    TILE_CLASS,
+    TILE_LINK_CLASS,
+    TILES_CONTAINER_CLASS,
+    StpeteGrantCategory,
+    StpeteGrantsCrawler,
+)
 
 # --- The 6 URLs, exactly as named in DECISIONS #30 --------------------------
 
@@ -97,6 +104,20 @@ class StpeteGrantProgramDetail:
     program_name: str
     description: str | None
     detail_urls: tuple[str, ...]
+    attribution: Attribution
+
+
+@dataclass(frozen=True)
+class StpeteSunriseProgram:
+    """One "Active Programs" tile from sunrise_st._pete/index.php. Unlike
+    the 4 pure-hub pages, this page's tiles carry real per-program detail
+    (an eligibility line + a description paragraph) directly in the tile
+    markup, beyond the still-empty .v2-tile-caption - see DECISIONS #34."""
+
+    program_name: str
+    program_url: str
+    eligibility: str | None
+    description: str | None
     attribution: Attribution
 
 
@@ -219,3 +240,100 @@ class StpeteGrantCategoryPagesCrawler(BaseCrawler):
             )
 
         return programs
+
+    def crawl_sunrise_page(self) -> list[StpeteSunriseProgram]:
+        resp = self.fetch(SUNRISE_URL)
+        return self.parse_sunrise_page(resp.text)
+
+    def parse_sunrise_page(self, html: str) -> list[StpeteSunriseProgram]:
+        """Parses sunrise_st._pete/index.php's "Active Programs" tile grid -
+        see module docstring / DECISIONS #34. Same div.v2-tiles-con/div.v2-tile
+        markup as the 4 hub pages, but each tile's .v2-tile-info carries 2
+        extra <p> elements beyond the (still-empty) .v2-tile-caption: one
+        wrapping an <em> eligibility line, one plain description paragraph -
+        confirmed live, identical shape across all 5 tiles observed."""
+        soup = BeautifulSoup(html, "lxml")
+
+        base_tag = soup.find("base")
+        link_base = base_tag.get("href") if base_tag is not None and base_tag.get("href") else SUNRISE_URL
+
+        container = soup.find("div", class_=TILES_CONTAINER_CLASS)
+        if container is None:
+            self.fail_loud(
+                f"tiles container div.{TILES_CONTAINER_CLASS} not found on {SUNRISE_URL} "
+                "- stpete.org's grants/loans page structure may have changed"
+            )
+
+        tiles = container.find_all("div", class_=TILE_CLASS, recursive=False)
+        if not tiles:
+            self.fail_loud(
+                f"no div.{TILE_CLASS} program cards found inside div.{TILES_CONTAINER_CLASS} "
+                f"on {SUNRISE_URL}"
+            )
+
+        retrieval_time = datetime.now(timezone.utc)
+
+        programs: list[StpeteSunriseProgram] = []
+        for tile in tiles:
+            programs.append(self._parse_sunrise_tile(tile, retrieval_time, link_base))
+        return programs
+
+    def _parse_sunrise_tile(self, tile: Tag, retrieval_time, link_base: str) -> StpeteSunriseProgram:
+        info = tile.find("div", class_="v2-tile-info")
+        if info is None:
+            self.fail_loud(
+                f"a div.{TILE_CLASS} card has no div.v2-tile-info - "
+                f"tile markup: {tile.get('class')} on {SUNRISE_URL}"
+            )
+
+        link = info.find("a", class_=TILE_LINK_CLASS)
+        if link is None:
+            self.fail_loud(f"a div.v2-tile-info has no a.{TILE_LINK_CLASS} on {SUNRISE_URL}")
+        href = link.get("href")
+        if not href:
+            self.fail_loud(f"a.{TILE_LINK_CLASS} has no href on {SUNRISE_URL}")
+
+        program_name = link.get_text(strip=True)
+        if not program_name:
+            self.fail_loud(f"a.{TILE_LINK_CLASS} has empty text on {SUNRISE_URL}")
+
+        program_url = urljoin(link_base, href)
+
+        # The always-empty .v2-tile-caption (same as the 4 hub pages) plus
+        # 0-2 extra <p> elements carrying the real per-program detail on
+        # this page specifically. Classify by whether a <p> wraps an <em>
+        # (eligibility) or not (description) - nullable when a tile omits
+        # one, per .claude/rules/data.md, not a structure failure: DECISIONS
+        # #32's hub pages prove a caption-only tile is a legitimate stpete.org
+        # state, not necessarily broken markup.
+        extra_paragraphs = [
+            p for p in info.find_all("p", recursive=False) if TILE_CAPTION_CLASS not in (p.get("class") or [])
+        ]
+
+        eligibility: str | None = None
+        description_parts: list[str] = []
+        for p in extra_paragraphs:
+            text = p.get_text(" ", strip=True)
+            if not text:
+                continue
+            if p.find("em") is not None:
+                eligibility = text
+            else:
+                description_parts.append(text)
+        description = " ".join(description_parts) or None
+
+        attribution = Attribution(
+            source_url=SUNRISE_URL,
+            retrieval_timestamp=retrieval_time,
+            # No per-program date appears in any tile's text (confirmed
+            # live) - nullable per .claude/rules/data.md, not a sentinel.
+            published_date=None,
+        )
+
+        return StpeteSunriseProgram(
+            program_name=program_name,
+            program_url=program_url,
+            eligibility=eligibility,
+            description=description,
+            attribution=attribution,
+        )
