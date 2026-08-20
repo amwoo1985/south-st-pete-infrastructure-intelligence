@@ -65,6 +65,17 @@ typed value; per the same discipline as DECISIONS #29/#33/#34,
 a sentinel) rather than guessing which of a section's several embedded
 dates is "the" effective date. Raw amounts/dates remain in ``text``,
 verbatim.
+
+DECISIONS #38 expands scope a fourth directory level to the 3 pages
+``for_business_owners.php`` links to (``grow_smarter.php``,
+``business/legacy_business_program.php``, ``tax_incentives.php``). Live
+recon (2026-08-20) confirmed all 3 share this same ``#post
+.module-container`` / ``<h1>``/``<h2>``/``<h3>``/``<h4>`` template - none
+is itself a further hub page (no ``div.v2-tiles-con`` tile grid on any of
+the 3, and no internal ``stpete.org``/``www.stpete.org`` link found in any
+of their content). They're parsed with the same
+``parse_program_detail_page()``, no separate parser needed. See
+DECISIONS #39.
 """
 
 from __future__ import annotations
@@ -160,6 +171,24 @@ PROGRAM_DETAIL_URLS: tuple[str, ...] = (
     GOV_YOUTH_OPPORTUNITY_GRANTS_URL,
 )
 
+# --- The 3 URLs DECISIONS #38 names, linked from for_business_owners.php ---
+
+GROW_SMARTER_URL = "https://www.stpete.org/residents/grants___loans/grow_smarter.php"
+LEGACY_BUSINESS_PROGRAM_URL = "https://www.stpete.org/business/legacy_business_program.php"
+TAX_INCENTIVES_URL = "https://www.stpete.org/residents/grants___loans/tax_incentives.php"
+
+# Confirmed live (2026-08-20) to share PROGRAM_DETAIL_URLS' h2-sectioned
+# template - see module docstring / DECISIONS #38/#39. Kept as its own
+# tuple, not merged into PROGRAM_DETAIL_URLS, because it's a distinct
+# DECISIONS grant (a further directory level, only reachable via the
+# for_business_owners.php hub) - collapsing the two would blur which
+# DECISIONS entry authorizes which URL.
+FURTHER_HUB_DETAIL_URLS: tuple[str, ...] = (
+    GROW_SMARTER_URL,
+    LEGACY_BUSINESS_PROGRAM_URL,
+    TAX_INCENTIVES_URL,
+)
+
 # Block-level content tags collected within a page's content container.
 # Filtered so a <p>/<ul>/<ol>/<table> nested inside another matched block
 # (e.g. a <p> inside a <table> cell, confirmed live on
@@ -217,8 +246,8 @@ def _is_top_level_block(el: Tag, container: Tag) -> bool:
 
 class StpeteProgramDetailsCrawler(BaseCrawler):
     """Crawls DECISIONS #35's per-program detail pages plus the one
-    further-hub page (`for_business_owners.php`) found among them - see
-    module docstring."""
+    further-hub page (`for_business_owners.php`) found among them, plus the
+    3 DECISIONS #38 pages that hub page links to - see module docstring."""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(source_name="stpete_program_details", **kwargs)
@@ -232,6 +261,20 @@ class StpeteProgramDetailsCrawler(BaseCrawler):
         by page URL."""
         results: dict[str, StpeteProgramDetailPage] = {}
         for url in PROGRAM_DETAIL_URLS:
+            resp = self.fetch(url)
+            results[url] = self.parse_program_detail_page(resp.text, url)
+        return results
+
+    def crawl_further_hub_detail_pages(self) -> dict[str, StpeteProgramDetailPage]:
+        """Fetches the 3 DECISIONS #38 pages linked from
+        `for_business_owners.php` (grow_smarter.php,
+        business/legacy_business_program.php, tax_incentives.php). Confirmed
+        live (2026-08-20) to share the same h2-sectioned template as the 22
+        DECISIONS #35 detail pages - reuses `parse_program_detail_page()`
+        rather than a new parser. See DECISIONS #39. Returns a dict keyed by
+        page URL."""
+        results: dict[str, StpeteProgramDetailPage] = {}
+        for url in FURTHER_HUB_DETAIL_URLS:
             resp = self.fetch(url)
             results[url] = self.parse_program_detail_page(resp.text, url)
         return results
