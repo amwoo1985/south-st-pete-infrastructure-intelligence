@@ -13,3 +13,11 @@ requests==2.34.2
 beautifulsoup4==4.15.0
 lxml==6.1.2
 pypdf==6.16.1
+
+# Test suite (DECISIONS #23)
+pytest==9.1.1
+responses==0.26.2
+
+# HTTP client for FastAPI's TestClient, Phase H (DECISIONS #24) — not used
+# by the crawlers, which stay on `requests` per DECISIONS #14.
+httpx==0.28.1
