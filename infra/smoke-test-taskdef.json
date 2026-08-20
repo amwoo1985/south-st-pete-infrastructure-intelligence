@@ -1,0 +1,24 @@
+{
+  "family": "ssp-smoke-test",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::516887747774:role/south-st-pete-ecs-task-execution-role",
+  "containerDefinitions": [
+    {
+      "name": "pg-check",
+      "image": "public.ecr.aws/docker/library/postgres:16",
+      "essential": true,
+      "command": ["sh", "-c", "pg_isready -h $DB_HOST -p 5432 -U ssp_admin && echo SMOKE_TEST_PASSED || echo SMOKE_TEST_FAILED"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/south-st-pete-smoke-test",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "smoke"
+        }
+      }
+    }
+  ]
+}

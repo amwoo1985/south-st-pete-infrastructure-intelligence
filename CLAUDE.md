@@ -28,8 +28,8 @@ This mirrors the agentic workflow used to build R-EX at VideoAmp (orchestrator +
 - Python 3.12, FastAPI, minimal web UI
 - PostgreSQL + pgvector (embeddings/retrieval)
 - Docker + docker-compose (local), AWS Fargate/ECS + RDS (deploy)
-- Embedding/LLM provider: **TBD — lock and smoke-test Day 1**, record in DECISIONS.md
-- Hosted transcription API provider: **TBD — lock and smoke-test Day 1**, record in DECISIONS.md
+- Embedding/LLM provider: **OpenAI** (`text-embedding-3-small`, `gpt-4o-mini`) — DECISIONS #13, smoke-tested 2026-08-19 with a real embedding call and chat completion.
+- Hosted transcription API provider: **OpenAI** (`whisper-1`) — DECISIONS #13, smoke-tested 2026-08-19 against a real St. Petersburg City Council meeting clip.
 
 ## Data sources (DECISIONS #11, #12)
 
