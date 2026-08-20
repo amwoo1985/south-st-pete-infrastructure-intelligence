@@ -251,3 +251,13 @@ A `<p>`/`<ul>`/`<ol>`/`<table>` nested inside another matched block element (con
 Live recon also confirmed real per-program dollar amounts and deadline dates are present in this page family's prose (e.g. `$5,000` grant caps, `September 30, 2026` deadlines) — the real per-program data DECISIONS #32 found missing one directory level up. No amount/date field is parsed out of that text into a typed value; `published_date` stays `None` for every item (nullable per `.claude/rules/data.md`, not a sentinel), same discipline as DECISIONS #29/#33/#34, since a page can embed several dates (deadlines, RFP rounds, past-recipient-list years) with no single one reliably "the" effective date.
 Why: A closed, code-enforced URL list (DECISIONS #35/#36) plus one honestly-scoped parser is more defensible under review than a parser that silently guesses at program boundaries it cannot verify — and avoids two near-duplicate dataclasses for a distinction that turned out not to be reliably detectable from the markup itself.
 Date: 2026-08-20
+
+## #38 — stpete.org scope expanded a fourth directory level: 3 named pages linked from `for_business_owners.php`
+Decision: The stpete.org source is expanded once more, to the 3 pages DECISIONS #36 found linked from `for_business_owners.php` (itself one of DECISIONS #35's 23 URLs, confirmed to be a further hub rather than content). Confirmed live on 2026-08-20 via `StpeteProgramDetailsCrawler.crawl_further_hub_page()`:
+- `https://www.stpete.org/residents/grants___loans/grow_smarter.php` (Grow Smarter Job Creation and Talent Attraction Program)
+- `https://www.stpete.org/business/legacy_business_program.php` (Legacy Business Program — note this one is under a `business/` path, not `residents/grants___loans/` or `residents/housing/...` like every prior entry; still `www.stpete.org`, already allow-listed per DECISIONS #31)
+- `https://www.stpete.org/residents/grants___loans/tax_incentives.php` (Tax Incentives)
+
+DECISIONS #36 also flagged an open question this entry does not resolve: whether any of the other 22 DECISIONS #35 detail pages conceal a similar further-hub link inside their prose (DECISIONS #37's parser captures dedup'd hrefs per `<h2>` block but nothing has checked those captured hrefs for further stpete.org hub pages). That check, and any URLs it surfaces, needs its own future DECISIONS entry — this entry authorizes exactly the 3 URLs above and does not pre-authorize a fifth directory level or a retroactive sweep of the existing 22.
+Why: Same closed/finite/code-enforceable discipline as #11/#17/#30/#35 — Amber asked for a 5th round specifically to close out this one known hub before deciding whether stpete.org is done for this cycle.
+Date: 2026-08-20
