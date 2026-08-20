@@ -100,3 +100,18 @@ Date: 2026-08-20
 Decision: `app/crawlers/base.py`'s `Attribution` dataclass carries `source_url: str`, `retrieval_timestamp: datetime` (always set, UTC, tz-aware, non-nullable), and `published_date: date | None = None`.
 Why: `.claude/rules/crawler.md` mandates all three fields on every item; `.claude/rules/data.md` mandates nullable-over-sentinel for values not yet known at capture time. `retrieval_timestamp` is always knowable the instant a fetch happens, so it's required. `published_date` (the meeting/effective date) depends on a source's parse succeeding, so it's `Optional` rather than defaulting to a magic placeholder like `1970-01-01`.
 Date: 2026-08-20
+
+## #19 — HTML parsing library: BeautifulSoup4 + lxml
+Decision: `app/crawlers/legistar.py` parses Legistar's calendar table and Accessible-Agenda HTML pages using `beautifulsoup4` with the `lxml` parser backend.
+Why: Legistar's markup is old-style ASP.NET WebForms output (nested `<font>` tags, `<table>`-based layout, verbose auto-generated element IDs) — BeautifulSoup's tolerant parsing handles that without hand-rolled regex-on-HTML, which is brittle and exactly the kind of thing that silently breaks instead of failing loud. `lxml` is used as the parser backend for speed and stricter standards conformance than the stdlib `html.parser`. Neither was previously in the project `.venv`; both were installed and pinned in `requirements.txt` this session.
+Date: 2026-08-20
+
+## #20 — PDF text extraction library: pypdf
+Decision: `app/crawlers/legistar.py`'s PDF-fallback path (used when Legistar doesn't offer an Accessible-Agenda HTML view for a meeting) extracts text via `pypdf`.
+Why: Pure-Python, no external binary dependency (unlike `pdftotext`/poppler), actively maintained, and sufficient for Legistar's agenda PDFs, which are text-layer PDFs (not scanned images) — confirmed by extracting real text from a live agenda PDF during Day 2 recon. OCR is explicitly out of scope; if a future agenda PDF turns out to be a scanned image with no text layer, `_extract_pdf_text`'s empty-text check raises `CrawlerStructureError` rather than silently returning nothing.
+Date: 2026-08-20
+
+## #21 — Legistar "not viewable by the public" meetings are captured, not skipped or fail-loud
+Decision: When a calendar row's Meeting Details cell has no link (Legistar renders these with a `meeting_NotViewable` class and no `href`, e.g. certain closed/executive-session items), `app/crawlers/legistar.py` records the meeting with `meeting_detail_url=None` and falls back to the calendar page itself as the item's `source_url`. It does not raise `CrawlerStructureError` and does not drop the row.
+Why: This is a real, expected Legistar state (confirmed live in Day 2 recon), not a sign of a broken parser — treating it as a structure failure would make the crawler fail loud on legitimate data. Dropping the row silently would violate the "never silently return empty" rule from a different angle: the meeting exists on the calendar and its occurrence (date, body, time) is itself attributable information even when its detail page isn't public.
+Date: 2026-08-20
