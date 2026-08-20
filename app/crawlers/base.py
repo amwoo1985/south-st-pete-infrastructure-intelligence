@@ -56,6 +56,7 @@ ALLOWED_SOURCE_HOSTS = frozenset(
         "pinellascf.org",  # Tier 1 — Pinellas Community Foundation grants
         "stpete.granicus.com",  # Tier 1.5 — City Council via Granicus (#12)
         "www.stpeteha.org",  # Tier 1 — St. Petersburg Housing Authority, the 9 pages named in DECISIONS #48/#49
+        "pinellas.gov",  # Tier 1 — Pinellas County Housing & Community Development, the 11 pages named in DECISIONS #48/#52 (NOT pinellascounty.org — that host 301-redirects here, see DECISIONS #48)
     }
 )
 
