@@ -20,6 +20,8 @@ from app.crawlers.stpete_program_details import (
     COMMUNITY_FOOD_GRANT_PROGRAM_URL,
     COMMUNITY_IMPACT_SUMMER_ENHANCEMENT_GRANT_URL,
     CONSOLIDATED_PLAN_URL,
+    CRA_HOUSING_BASED_GRANTS_URL,
+    DECISIONS_41_URLS,
     EDUCATION_YOUTH_OPPORTUNITY_GRANTS_URL,
     FOR_BUSINESS_OWNERS_URL,
     FOR_DEVELOPERS_URL,
@@ -382,3 +384,100 @@ def test_crawl_further_hub_page_fetches_and_parses():
     crawler = make_crawler()
     tiles = crawler.crawl_further_hub_page()
     assert len(tiles) == 3
+
+
+# --- DECISIONS #41: cra_housing-based_grants.php, same template ------------
+
+
+def test_decisions_41_urls_is_exactly_the_1_named_url():
+    assert DECISIONS_41_URLS == (CRA_HOUSING_BASED_GRANTS_URL,)
+    assert CRA_HOUSING_BASED_GRANTS_URL == "https://www.stpete.org/residents/grants___loans/cra_housing-based_grants.php"
+
+
+def test_parse_cra_housing_based_grants_real_fixture():
+    """Fixture recorded live (2026-08-20) via this module's own crawler's
+    fetch() - see DECISIONS #41. Confirmed a single <h2> ('Overview')
+    containing 5 <h3> subsections, one per CRA-specific housing
+    sub-program - not a further hub page."""
+    html = load_fixture("cra_housing-based_grants.html")
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, CRA_HOUSING_BASED_GRANTS_URL)
+
+    assert page.page_title == "South St. Pete Housing and Neighborhoods"
+    assert page.page_url == CRA_HOUSING_BASED_GRANTS_URL
+    assert len(page.sections) == 1
+
+    overview = page.sections[0]
+    assert overview.heading == "Overview"
+    sub_headings = [sub.heading for sub in overview.subsections]
+    assert sub_headings == [
+        "Rebates for Affordable Residential Rehabs",
+        "Housing Down Payment Assistance Program",
+        "Housing Rehabilitation Assistance Program",
+        "Affordable Single-Family Facade Improvement Grant Program",
+        "Affordable Housing Redevelopment Loan Program",
+    ]
+    for sub in overview.subsections:
+        assert sub.text
+
+    # Mandatory attribution per .claude/rules/crawler.md.
+    assert page.attribution.source_url == CRA_HOUSING_BASED_GRANTS_URL
+    assert page.attribution.retrieval_timestamp.tzinfo is not None
+    assert page.attribution.published_date is None
+
+
+def test_cra_housing_based_grants_real_ami_threshold_in_text():
+    """Real per-program detail embedded in prose (not a thin stub) - a
+    120% Area Median Income threshold for the Rapid Roof Replacement
+    sub-program, confirmed live."""
+    html = load_fixture("cra_housing-based_grants.html")
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, CRA_HOUSING_BASED_GRANTS_URL)
+
+    facade = next(
+        sub
+        for sub in page.sections[0].subsections
+        if sub.heading == "Affordable Single-Family Facade Improvement Grant Program"
+    )
+    assert facade.text is not None
+    assert "120% Area Median Income" in facade.text
+
+
+def test_cra_housing_based_grants_links_are_already_in_scope_or_declined():
+    """No new stpete.org page link should appear here - every internal
+    stpete.org HTML page link on this page is either already in
+    PROGRAM_DETAIL_URLS or the already-declined DECISIONS #32 housing.php
+    hub. Regression guard: if this ever fails, a real new candidate page
+    has appeared and needs its own DECISIONS entry, not silent crawling."""
+    html = load_fixture("cra_housing-based_grants.html")
+    crawler = make_crawler()
+    page = crawler.parse_program_detail_page(html, CRA_HOUSING_BASED_GRANTS_URL)
+
+    already_in_scope = set(PROGRAM_DETAIL_URLS) | {
+        "https://www.stpete.org/residents/grants___loans/housing.php",
+    }
+    for section in page.sections:
+        for link in section.links:
+            if link.startswith("https://www.stpete.org/") or link.startswith("https://stpete.org/"):
+                if link.endswith((".pdf", ".xlsx", ".jpg")) or "?t=" in link:
+                    continue  # document links, not further HTML pages
+                assert link in already_in_scope, f"unexpected new stpete.org page link: {link}"
+
+
+@responses.activate
+def test_crawl_decisions_41_page_fetches_and_parses():
+    register_robots_permissive(responses, host="www.stpete.org")
+    responses.add(
+        responses.GET,
+        CRA_HOUSING_BASED_GRANTS_URL,
+        body=load_fixture("cra_housing-based_grants.html"),
+        status=200,
+    )
+
+    crawler = make_crawler()
+    results = crawler.crawl_decisions_41_page()
+
+    assert set(results.keys()) == {CRA_HOUSING_BASED_GRANTS_URL}
+    page = results[CRA_HOUSING_BASED_GRANTS_URL]
+    assert page.page_url == CRA_HOUSING_BASED_GRANTS_URL
+    assert page.sections
