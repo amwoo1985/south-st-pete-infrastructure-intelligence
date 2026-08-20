@@ -155,3 +155,16 @@ Date: 2026-08-20
 Decision: `app/crawlers/pinellas_cf.py`'s `_parse_award_date()` extracts a first-of-month `date` from the grants table's free-text "AWARD DISTRIBUTION" cell (e.g. "March 2026", "Early December 2026") via a `Month YYYY` regex search. If no match is found, `published_date` is set to `None` rather than raising `CrawlerStructureError`.
 Why: All 7 rows observed live (2026-08-20) matched the pattern, but the cell is free text editable independently of the table's HTML structure (unlike a missing `<td>` or a renamed column header, which are structural changes and do stay fail-loud in `parse_grants_table`/`_parse_row`). A future row with a genuinely unannounced distribution date (e.g. "TBD") is a legitimate "not yet known" content state, the same category of case as DECISIONS #21's Legistar "not viewable by the public" meetings — nullable per `.claude/rules/data.md`, not a parser break.
 Date: 2026-08-20
+
+## #30 — stpete.org scope expanded to the 6 named category sub-pages; supersedes #27's blocker
+Decision: The stpete.org source (DECISIONS #11) is expanded from the single index page to exactly these 6 additional named URLs, confirmed live via the index crawler itself on 2026-08-20:
+- `https://www.stpete.org/residents/grants___loans/business.php` (For Business)
+- `https://www.stpete.org/residents/grants___loans/community.php` (For Community & Neighborhoods)
+- `https://www.stpete.org/residents/grants___loans/housing.php` (For Housing)
+- `https://www.stpete.org/residents/grants___loans/for_south_stpete.php` (For South St. Pete CRA)
+- `https://www.stpete.org/residents/grants___loans/youth.php` (For Youth)
+- `https://www.stpete.org/residents/grants___loans/sunrise_st._pete/index.php` (Sunrise St. Pete)
+
+A future crawler task may fetch these 6 pages and extract per-program grant details (amounts, deadlines, eligibility). **This entry does NOT pre-authorize going any deeper.** DECISIONS #27's recon noted at least one of these sub-pages (`business.php`) appears to be itself a hub linking to further pages (e.g. `for_business_owners.php`). If real per-program data turns out to live at a third directory level rather than on these 6 pages directly, that requires its own DECISIONS entry naming the further URLs — not an assumption that this entry's scope grant extends that far.
+Why: Amber reviewed DECISIONS #27's blocker and chose to expand scope now rather than leave the crawler's output thin — the 6 index-level category tiles carry no dates/amounts, so a query against them can't answer "what grants exist and when." Naming the exact 6 URLs (not "stpete.org's grants section" generally) keeps the same discipline as #11/#17: closed, finite, code-enforceable scope, not an open mandate to crawl anything reachable from the index page.
+Date: 2026-08-20
