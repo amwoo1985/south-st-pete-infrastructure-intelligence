@@ -76,6 +76,21 @@ the 3, and no internal ``stpete.org``/``www.stpete.org`` link found in any
 of their content). They're parsed with the same
 ``parse_program_detail_page()``, no separate parser needed. See
 DECISIONS #39.
+
+DECISIONS #41 expands scope by exactly 1 more page,
+``cra_housing-based_grants.php`` (found linked from
+``for_property_owners.php`` per DECISIONS #40's link sweep). Live recon
+(2026-08-20) confirmed it shares the same ``#post .module-container`` /
+``<h1>``/``<h2>``/``<h3>`` template: a single ``<h2>`` ("Overview")
+containing 5 ``<h3>`` subsections, one per CRA-specific housing
+sub-program. Not a further hub - its content links are almost entirely
+back to pages already in ``PROGRAM_DETAIL_URLS``
+(``rebates_for_affordable_residential_rehabs.php``,
+``purchase_assistance_program.php``,
+``housing_rehabilitation_assistance_program.php``) plus one link to the
+already-excluded DECISIONS #32 ``housing.php`` hub; no new stpete.org page
+link was found. Parsed with the same ``parse_program_detail_page()``, no
+separate parser needed.
 """
 
 from __future__ import annotations
@@ -189,6 +204,17 @@ FURTHER_HUB_DETAIL_URLS: tuple[str, ...] = (
     TAX_INCENTIVES_URL,
 )
 
+# --- The 1 URL DECISIONS #41 names, exactly ---------------------------------
+
+CRA_HOUSING_BASED_GRANTS_URL = "https://www.stpete.org/residents/grants___loans/cra_housing-based_grants.php"
+
+# Confirmed live (2026-08-20) to share PROGRAM_DETAIL_URLS' h2-sectioned
+# template - see module docstring / DECISIONS #41. Kept as its own tuple,
+# not merged into PROGRAM_DETAIL_URLS, for the same reason
+# FURTHER_HUB_DETAIL_URLS is kept separate: collapsing the two would blur
+# which DECISIONS entry authorizes which URL.
+DECISIONS_41_URLS: tuple[str, ...] = (CRA_HOUSING_BASED_GRANTS_URL,)
+
 # Block-level content tags collected within a page's content container.
 # Filtered so a <p>/<ul>/<ol>/<table> nested inside another matched block
 # (e.g. a <p> inside a <table> cell, confirmed live on
@@ -247,7 +273,8 @@ def _is_top_level_block(el: Tag, container: Tag) -> bool:
 class StpeteProgramDetailsCrawler(BaseCrawler):
     """Crawls DECISIONS #35's per-program detail pages plus the one
     further-hub page (`for_business_owners.php`) found among them, plus the
-    3 DECISIONS #38 pages that hub page links to - see module docstring."""
+    3 DECISIONS #38 pages that hub page links to, plus the 1 DECISIONS #41
+    page - see module docstring."""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(source_name="stpete_program_details", **kwargs)
@@ -275,6 +302,19 @@ class StpeteProgramDetailsCrawler(BaseCrawler):
         page URL."""
         results: dict[str, StpeteProgramDetailPage] = {}
         for url in FURTHER_HUB_DETAIL_URLS:
+            resp = self.fetch(url)
+            results[url] = self.parse_program_detail_page(resp.text, url)
+        return results
+
+    def crawl_decisions_41_page(self) -> dict[str, StpeteProgramDetailPage]:
+        """Fetches DECISIONS #41's 1 page (cra_housing-based_grants.php).
+        Confirmed live (2026-08-20) to share the same h2-sectioned template
+        as the 22 DECISIONS #35 detail pages - reuses
+        `parse_program_detail_page()`. See module docstring. Returns a dict
+        keyed by page URL (single entry), matching the shape of the other
+        `crawl_*` methods here."""
+        results: dict[str, StpeteProgramDetailPage] = {}
+        for url in DECISIONS_41_URLS:
             resp = self.fetch(url)
             results[url] = self.parse_program_detail_page(resp.text, url)
         return results
