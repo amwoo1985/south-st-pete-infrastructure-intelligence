@@ -287,3 +287,11 @@ Decision: Per DECISIONS #36/#38's explicitly-left-open question, all `<h2>`-sect
 None of these 10 were fetched or parsed — this entry is the investigation record, not a build. **A round 6 does look warranted** if per-program data on these pages (especially `cra_housing-based_grants.php`, which by name may be another grant program in the same underserved-scope gap DECISIONS #32 originally flagged) is wanted; it would need its own DECISIONS entry naming these exact URLs (and confirming the 3 vanity URLs' actual resolved targets/shapes live) before any crawler follows them.
 Why: DECISIONS #36 flagged this exact check as unclosed when DECISIONS #38 was written, and the task explicitly asked to close it out one way or the other. Recording "10 new candidates found," not silently deciding whether to build them, keeps the same discipline as every prior entry in this chain — the finding is Amber's to act on, not an assumed authorization to keep crawling.
 Date: 2026-08-20
+
+## #41 — stpete.org scope expanded to 1 page: `cra_housing-based_grants.php`; the other 9 DECISIONS #40 candidates explicitly declined this round
+Decision: Of DECISIONS #40's 10 candidates, exactly 1 is added to scope:
+- `https://www.stpete.org/residents/grants___loans/cra_housing-based_grants.php` (linked from `for_property_owners.php`)
+
+The other 9 (`housing_opportunities_for_all.php`, `income_limits.php`, `documents.php`, both boards/committees pages, the mayor's-office vision page, and the 3 unresolved vanity URLs `/affordablehousing`, `/arpa`, `/artsnewsletter`) are explicitly NOT in scope this round — not deferred-and-forgotten, declined. Amber reviewed DECISIONS #40's full list and chose this one specifically because it reads as another real grant program in the same underserved gap DECISIONS #32 originally flagged (CRA = Community Redevelopment Area, directly relevant to the South St. Pete CRA work this project exists for), not because it's next in some sweep order. If any of the other 9 are wanted later, that needs its own DECISIONS entry same as this one — this entry does not pre-authorize them.
+Why: DECISIONS #40 recorded findings without authorizing action, per its own text. This entry is that authorization, scoped to the one candidate with a clear domain reason rather than a blanket "close out the list."
+Date: 2026-08-20
