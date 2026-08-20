@@ -71,19 +71,29 @@ class StpeteGrantsCrawler(BaseCrawler):
         return self.parse_index(resp.text)
 
     def parse_index(self, html: str) -> list[StpeteGrantCategory]:
+        return self.parse_tiles_page(html, GRANTS_URL)
+
+    def parse_tiles_page(self, html: str, page_url: str) -> list[StpeteGrantCategory]:
+        """Parses the shared ``div.v2-tiles-con`` / ``div.v2-tile`` tile-grid
+        template against any stpete.org page that uses it - not just this
+        module's own index page. DECISIONS #30's business.php/community.php/
+        housing.php/youth.php sub-pages (see
+        ``app/crawlers/stpete_grant_categories.py``) use the exact same
+        markup, just with a different ``page_url``, so this is factored out
+        rather than duplicated - see DECISIONS #32."""
         soup = BeautifulSoup(html, "lxml")
 
         # Relative hrefs on this page resolve against the document's
-        # declared <base>, not against GRANTS_URL's own directory - see
-        # module docstring / DECISIONS #28. Fall back to GRANTS_URL if a
+        # declared <base>, not against page_url's own directory - see
+        # module docstring / DECISIONS #28. Fall back to page_url if a
         # future page revision drops the <base> tag.
         base_tag = soup.find("base")
-        link_base = base_tag.get("href") if base_tag is not None and base_tag.get("href") else GRANTS_URL
+        link_base = base_tag.get("href") if base_tag is not None and base_tag.get("href") else page_url
 
         container = soup.find("div", class_=TILES_CONTAINER_CLASS)
         if container is None:
             self.fail_loud(
-                f"tiles container div.{TILES_CONTAINER_CLASS} not found on {GRANTS_URL} "
+                f"tiles container div.{TILES_CONTAINER_CLASS} not found on {page_url} "
                 "- stpete.org's grants/loans page structure may have changed"
             )
 
@@ -91,7 +101,7 @@ class StpeteGrantsCrawler(BaseCrawler):
         if not tiles:
             self.fail_loud(
                 f"no div.{TILE_CLASS} category cards found inside div.{TILES_CONTAINER_CLASS} "
-                f"on {GRANTS_URL}"
+                f"on {page_url}"
             )
 
         # One retrieval timestamp for the whole page fetch, shared by every
@@ -100,10 +110,10 @@ class StpeteGrantsCrawler(BaseCrawler):
 
         categories: list[StpeteGrantCategory] = []
         for tile in tiles:
-            categories.append(self._parse_tile(tile, retrieval_time, link_base))
+            categories.append(self._parse_tile(tile, retrieval_time, link_base, page_url))
         return categories
 
-    def _parse_tile(self, tile: Tag, retrieval_time, link_base: str) -> StpeteGrantCategory:
+    def _parse_tile(self, tile: Tag, retrieval_time, link_base: str, page_url: str = GRANTS_URL) -> StpeteGrantCategory:
         link = tile.find("a", class_=TILE_LINK_CLASS)
         if link is None:
             self.fail_loud(
@@ -112,11 +122,11 @@ class StpeteGrantsCrawler(BaseCrawler):
             )
         href = link.get("href")
         if not href:
-            self.fail_loud(f"a.{TILE_LINK_CLASS} has no href on {GRANTS_URL}")
+            self.fail_loud(f"a.{TILE_LINK_CLASS} has no href on {page_url}")
 
         category_name = link.get_text(strip=True)
         if not category_name:
-            self.fail_loud(f"a.{TILE_LINK_CLASS} has empty text on {GRANTS_URL}")
+            self.fail_loud(f"a.{TILE_LINK_CLASS} has empty text on {page_url}")
 
         category_url = urljoin(link_base, href)
 
@@ -128,7 +138,7 @@ class StpeteGrantsCrawler(BaseCrawler):
         # docstring) - nullable per .claude/rules/data.md, not a magic
         # sentinel.
         attribution = Attribution(
-            source_url=GRANTS_URL,
+            source_url=page_url,
             retrieval_timestamp=retrieval_time,
             published_date=None,
         )
