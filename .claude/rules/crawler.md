@@ -27,6 +27,12 @@ Every crawled or transcribed item carries, at minimum:
 
 This is the same audit/source-attribution discipline already proven at VideoAmp/R-EX — applied here because a civic-data tool with wrong or unattributed provenance is actively worse than no tool.
 
+## Granicus-specific (verified 2026-08-19 during Day 1 smoke test)
+
+- Use the direct audio-only URL (`archive-video.granicus.com/stpete/<uuid>.mp3`) found on each meeting's `MediaPlayer.php` page — never the `DownloadFile.php?...` redirect, which resolves to the full multi-GB **video** file, not audio.
+- The archive CDN returns a bare `403 Request blocked` to requests without a browser-like `User-Agent` header. A realistic `User-Agent` (and `Referer: https://stpete.granicus.com/`) resolves it — this is CDN bot-filtering, not an access-control or auth requirement.
+- The archive CDN supports HTTP `Range` requests (confirmed: `206 Partial Content`) — use ranged requests to fetch/transcribe in chunks rather than downloading entire multi-hour files into memory at once.
+
 ## Transcription-specific
 
 - Transcription jobs run as async background work: status column + polling worker, `FOR UPDATE SKIP LOCKED` claiming, stale-row recovery for jobs that die mid-flight. Do not attempt synchronous transcription of multi-hour audio inside an HTTP request.
