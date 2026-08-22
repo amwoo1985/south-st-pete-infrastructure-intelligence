@@ -52,7 +52,7 @@ def test_pinellas_cf_chunks_one_per_row():
 def test_pinellas_cf_same_underlying_program_different_cycles_get_distinct_chunks():
     # "Senior Citizens Services Grants: Housing"/"...: Wellness"/"...:
     # Support" share one detail_url but are 3 distinct funding-cycle rows
-    # (DECISIONS #63) - each must get its own chunk_id.
+    # (DECISIONS #62) - each must get its own chunk_id.
     programs = load_real_pinellas_cf_programs()
     senior_programs = [p for p in programs if p.program_name.startswith("Senior Citizens Services Grants")]
     assert len(senior_programs) == 3
