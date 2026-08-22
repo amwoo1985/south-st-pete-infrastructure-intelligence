@@ -136,6 +136,55 @@ def test_robots_txt_fetch_failure_fails_loud_not_permissive():
         pass
 
 
+# --- Narrow per-host 403-on-robots.txt exception (DECISIONS #89/#91) -------
+
+
+@responses.activate
+def test_robots_txt_403_treated_as_permissive_for_granicus_cdn_host_only():
+    """archive-video.granicus.com is the one host where a 403 on
+    robots.txt itself is treated as "no restrictions declared" (DECISIONS
+    #89/#91) — every other host's 403 must still raise RobotsError
+    (covered by test_robots_txt_403_is_not_permissive_for_other_hosts
+    below), so this test alone would not catch an accidental broadening of
+    the exception to all hosts."""
+    responses.add(
+        responses.GET,
+        "https://archive-video.granicus.com/robots.txt",
+        status=403,
+    )
+    responses.add(
+        responses.GET,
+        "https://archive-video.granicus.com/some-meeting.mp3",
+        body=b"fake-audio-bytes",
+        status=200,
+    )
+
+    crawler = BaseCrawler(source_name="test", min_request_interval_seconds=0)
+    resp = crawler.fetch("https://archive-video.granicus.com/some-meeting.mp3")
+    assert resp.status_code == 200
+
+
+@responses.activate
+def test_robots_txt_403_is_not_permissive_for_other_hosts():
+    """The 403-as-permissive exception is scoped to
+    ROBOTS_403_TREATED_AS_PERMISSIVE_HOSTS only — a 403 on any other
+    host's robots.txt (pinellas.legistar.com here) must still raise
+    RobotsError exactly as before DECISIONS #91, proving this isn't a
+    general loosening of the 404-only rule."""
+    responses.add(
+        responses.GET,
+        "https://pinellas.legistar.com/robots.txt",
+        status=403,
+    )
+
+    crawler = BaseCrawler(source_name="test", min_request_interval_seconds=0)
+    try:
+        crawler.fetch("https://pinellas.legistar.com/Calendar.aspx")
+        assert False, "expected RobotsError"
+    except RobotsError:
+        pass
+
+
 # --- Honest User-Agent -------------------------------------------------------
 
 

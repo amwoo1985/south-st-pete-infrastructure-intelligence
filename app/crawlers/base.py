@@ -45,6 +45,30 @@ DEFAULT_MIN_REQUEST_INTERVAL_SECONDS = 2.0
 
 DEFAULT_TIMEOUT_SECONDS = 30
 
+# A narrow, host-specific exception to RobotsChecker's otherwise-strict
+# 404-only "no restrictions declared" rule (DECISIONS #16). For these hosts
+# ONLY, a 403 fetching robots.txt itself is also treated as "no
+# restrictions declared" instead of raising RobotsError. This is NOT a
+# general loosening of the 404-only rule — every other host's 403 (or any
+# other non-404 error) still raises RobotsError exactly as before.
+#
+# archive-video.granicus.com is here per DECISIONS #89/#91: three live
+# curl attempts under three different User-Agents (this project's honest
+# UA, no UA, and a browser-like UA+Referer) all returned a bare 403 on
+# /robots.txt specifically — never a 200 with a real policy, and never a
+# clean 404. The two response shapes seen (a CloudFront bot-filter page,
+# and a separate S3-style AccessDenied XML body) are both consistent with
+# this CDN's bucket simply not having a robots.txt object at all and
+# S3/CloudFront masking a missing key as AccessDenied/403 rather than a
+# clean 404 — a common S3 static-hosting quirk, not a real published
+# disallow policy. Do not add another host to this set without a new
+# DECISIONS.md entry documenting equivalent evidence for that host.
+ROBOTS_403_TREATED_AS_PERMISSIVE_HOSTS = frozenset(
+    {
+        "archive-video.granicus.com",  # DECISIONS #89/#91
+    }
+)
+
 # The closed source list, mirrored from DECISIONS #11 exactly. Adding a
 # host here without a new DECISIONS.md entry first is the scope violation
 # crawler-review checks for — don't do it.
@@ -134,7 +158,14 @@ class RobotsChecker:
     User-Agent and the same rate limiter as regular fetches. Absence of a
     robots.txt (404) is treated as "no restrictions declared" per standard
     convention; any other fetch failure raises RobotsError rather than
-    silently assuming permission."""
+    silently assuming permission.
+
+    Narrow exception (DECISIONS #89/#91): for hosts listed in
+    ROBOTS_403_TREATED_AS_PERMISSIVE_HOSTS, a 403 on the robots.txt fetch
+    itself is ALSO treated as "no restrictions declared". Every other host,
+    and every other non-2xx status on any of these hosts, still raises
+    RobotsError exactly as before — this is a per-host allowlist for one
+    specific status code on one specific fetch, not a general loosening."""
 
     def __init__(
         self,
@@ -169,9 +200,14 @@ class RobotsChecker:
                 f"Could not fetch robots.txt at {robots_url}: {exc}"
             ) from exc
 
-        if resp.status_code == 404:
+        host_is_403_exception = parsed.netloc in ROBOTS_403_TREATED_AS_PERMISSIVE_HOSTS
+        if resp.status_code == 404 or (resp.status_code == 403 and host_is_403_exception):
             # No robots.txt published: no restrictions declared. Standard
-            # convention, not an assumption made without evidence.
+            # convention for 404, not an assumption made without evidence.
+            # The 403 branch only fires for the narrow, documented
+            # per-host allowlist above (DECISIONS #89/#91) — every other
+            # host's 403 falls through to the RobotsError branch below,
+            # exactly as before.
             parser.parse([])
         elif resp.status_code >= 400:
             raise RobotsError(
