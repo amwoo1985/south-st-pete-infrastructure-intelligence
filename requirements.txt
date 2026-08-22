@@ -21,3 +21,17 @@ responses==0.26.2
 # HTTP client for FastAPI's TestClient, Phase H (DECISIONS #24) — not used
 # by the crawlers, which stay on `requests` per DECISIONS #14.
 httpx==0.28.1
+
+# openai==3.3.1's actual transitive HTTP client (a separate real package
+# from `httpx` above, not a typo — see DECISIONS #24's history of a
+# broken httpx2/httpcore2 install being mistaken for this). Pinned
+# explicitly because tests/embeddings/test_client.py imports it directly
+# to build realistic httpx2.Request/Response objects for retry-path tests
+# (Phase E, rag-review pre-commit pass).
+httpx2==2.12.0
+
+# Postgres + pgvector (Phase E, DECISIONS #71) — psycopg3 with the binary
+# wheel (no local libpq build needed); pgvector's psycopg adapter lets a
+# `vector` column round-trip as a plain Python list[float].
+psycopg[binary]==3.2.10
+pgvector==0.5.0
