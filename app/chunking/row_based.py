@@ -9,7 +9,7 @@ h2-sectioned stpete.org pages (app/chunking/stpete_pages.py, DECISIONS
 #48), neither source needs a grouping/splitting judgment call — each row
 is already exactly the unit a citation should point at: one named grant
 program with its own timeline, or one named funding allocation with its
-own dollar amount and description. One row, one chunk. See DECISIONS #63.
+own dollar amount and description. One row, one chunk. See DECISIONS #62.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def chunk_pinellas_cf_program(program: PinellasCFGrantProgram) -> Chunk:
     # program_name is unique per row in the real data even where 3 rows
     # share one underlying program (e.g. "Senior Citizens Services Grants:
     # Housing"/"...: Wellness"/"...: Support" are 3 distinct funding-cycle
-    # rows with 3 distinct names) - confirmed live, see DECISIONS #63.
+    # rows with 3 distinct names) - confirmed live, see DECISIONS #62.
     chunk_id = make_chunk_id(source_url, "pinellas_cf_grant", program.program_name)
 
     return Chunk(
