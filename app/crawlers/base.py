@@ -54,9 +54,14 @@ ALLOWED_SOURCE_HOSTS = frozenset(
         "stpete.org",  # Tier 1 — City of St. Petersburg grants/loans (index page, DECISIONS #11)
         "www.stpete.org",  # Tier 1 — the 6 category sub-pages named in DECISIONS #30
         "pinellascf.org",  # Tier 1 — Pinellas Community Foundation grants
-        "stpete.granicus.com",  # Tier 1.5 — City Council via Granicus (#12)
+        # NOTE: stpete.granicus.com is deliberately NOT listed. #77 found its
+        # robots.txt blocks this project's honest User-Agent from the entire
+        # host; #79 redesigned Granicus discovery around human-supplied MP3
+        # URLs specifically so no code ever needs to fetch this host again.
+        # Do not re-add it without a new DECISIONS entry.
         "www.stpeteha.org",  # Tier 1 — St. Petersburg Housing Authority, the 9 pages named in DECISIONS #48/#49
         "pinellas.gov",  # Tier 1 — Pinellas County Housing & Community Development, the 11 pages named in DECISIONS #48/#52 (NOT pinellascounty.org — that host 301-redirects here, see DECISIONS #48)
+        "archive-video.granicus.com",  # Tier 1.5 — Granicus MP3/video CDN (#76). Fetched by the Day 5+ worker (not built yet) to download audio for meetings registered via #79-81's human-input mechanism. This host was never blocked (#77 only found stpete.granicus.com blocked). See crawler.md's Granicus-specific section for the CDN's own bot-filtering behavior (browser-like User-Agent + Referer required, confirmed CDN filtering not real access control).
     }
 )
 
