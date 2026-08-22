@@ -9,6 +9,7 @@ venv/
 # Secrets / env — never committed, per DECISIONS #8
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 

@@ -1,0 +1,37 @@
+# Local dev only — pgvector-enabled Postgres for Phase E (embeddings + pgvector).
+# Does NOT touch the Fargate/RDS deploy path (see infra/ for that). Per DECISIONS #8,
+# one image, config-driven environments — this stack is selected by connecting to
+# localhost in dev, never baked into any image.
+#
+# Credentials come from the repo-root .env (gitignored, never committed) via the
+# LOCAL_DB_* variables below. See .env.example for the required names/placeholders.
+# These are intentionally distinct from RDS_MASTER_USERNAME/RDS_MASTER_PASSWORD,
+# which belong to the separate AWS RDS environment — do not reuse those names here.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16  # Postgres 16.x + pgvector, pinned major version (no :latest)
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LOCAL_DB_USER:?LOCAL_DB_USER must be set in .env}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD must be set in .env}
+      POSTGRES_DB: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
+    ports:
+      # Host-exposed so a host-run Python process (rag-pipeline, tests) can connect
+      # directly — no app container exists yet. Bound to localhost only, not 0.0.0.0.
+      - "127.0.0.1:${LOCAL_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, only on first init of an empty data dir: ensures the vector
+      # extension exists without relying on app code to assume it's there.
+      - ./infra/local-db/init-pgvector.sql:/docker-entrypoint-initdb.d/01-init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-postgres} -d ${LOCAL_DB_NAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+    # Named volume — persists across `docker-compose down`/`up`.
+    # Reset to a clean slate with: docker-compose down -v
