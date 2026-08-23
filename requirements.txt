@@ -35,3 +35,26 @@ httpx2==2.12.0
 # `vector` column round-trip as a plain Python list[float].
 psycopg[binary]==3.2.10
 pgvector==0.5.0
+
+# FastAPI layer, Phase H — pinned to what's verified installed and working
+# in .venv this round (`pip install fastapi "uvicorn[standard]"
+# python-multipart python-docx`, no upper bounds forced, this is just what
+# resolved live).
+fastapi==0.141.1
+# starlette is fastapi's actual ASGI toolkit dependency (pinned explicitly
+# per this repo's "every direct dependency this code imports against is
+# pinned" convention — nothing here imports starlette directly today, but
+# FastAPI's own exception/response types are re-exports of it).
+starlette==1.6.0
+# ASGI server used to actually run/verify the app locally (`uvicorn
+# app.api.main:app`); [standard] pulls in uvloop/httptools/websockets for
+# the realistic production-shaped install, not the bare minimal one.
+uvicorn[standard]==0.52.4
+# Required by FastAPI's UploadFile/File() multipart form parsing —
+# POST /documents/upload.
+python-multipart==0.0.32
+# DOCX parsing for POST /documents/upload's uploaded-document chunker
+# (app/chunking/uploaded_document.py). PDF and TXT parsing reuse the
+# already-pinned pypdf and the stdlib — no new dependency needed for
+# either of those two formats.
+python-docx==1.2.0
