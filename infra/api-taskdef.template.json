@@ -1,0 +1,34 @@
+{
+  "family": "south-st-pete-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::516887747774:role/south-st-pete-ecs-task-execution-role",
+  "containerDefinitions": [
+    {
+      "name": "south-st-pete-api",
+      "image": "__IMAGE__",
+      "essential": true,
+      "command": ["sh", "-c", "uvicorn app.api.main:app --host 0.0.0.0 --port 8000"],
+      "portMappings": [{"containerPort": 8000, "protocol": "tcp"}],
+      "environment": [
+        {"name": "LOCAL_DB_HOST", "value": "__DB_HOST__"},
+        {"name": "LOCAL_DB_USER", "value": "__RDS_MASTER_USERNAME__"},
+        {"name": "LOCAL_DB_PASSWORD", "value": "__RDS_MASTER_PASSWORD__"},
+        {"name": "LOCAL_DB_NAME", "value": "southstpete"},
+        {"name": "LOCAL_DB_PORT", "value": "5432"},
+        {"name": "OPENAI_API_KEY", "value": "__OPENAI_API_KEY__"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/south-st-pete-app",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "api",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}
