@@ -39,13 +39,22 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 for role in api worker; do
+  OUT_FILE="${TMP_DIR}/${role}-taskdef.json"
   sed \
     -e "s#__IMAGE__#${IMAGE}#g" \
     -e "s#__DB_HOST__#${DB_HOST}#g" \
     -e "s#__RDS_MASTER_USERNAME__#${RDS_MASTER_USERNAME}#g" \
     -e "s#__RDS_MASTER_PASSWORD__#${RDS_MASTER_PASSWORD}#g" \
     -e "s#__OPENAI_API_KEY__#${OPENAI_API_KEY}#g" \
-    "infra/${role}-taskdef.template.json" > "${TMP_DIR}/${role}-taskdef.json"
-  aws ecs register-task-definition --cli-input-json "file://${TMP_DIR}/${role}-taskdef.json" \
+    "infra/${role}-taskdef.template.json" > "${OUT_FILE}"
+  # aws.exe (Windows-native, e.g. Git Bash on Windows) can't resolve a POSIX
+  # /tmp/... path in a --cli-input-json file:// URI. cygpath -m (drive letter
+  # + forward slashes, e.g. C:/Users/...) converts it into a well-formed
+  # file:// URI; -w's backslashes would not be. On non-Windows shells cygpath
+  # doesn't exist, so fall back to the plain path.
+  if command -v cygpath >/dev/null 2>&1; then
+    OUT_FILE="$(cygpath -m "${OUT_FILE}")"
+  fi
+  aws ecs register-task-definition --cli-input-json "file://${OUT_FILE}" \
     --query 'taskDefinition.taskDefinitionArn' --output text
 done
