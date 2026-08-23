@@ -13,7 +13,7 @@ Conflating these two was the exact ambiguity that cost ~2 months on R-EX at Vide
 
 ## Workflow
 
-Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra`, `crawler` for building; `rag-review`, `deploy-review`, `crawler-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
+Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra`, `crawler` for building; `rag-review`, `api-review`, `deploy-review`, `crawler-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
 
 Every non-trivial design decision gets a numbered `DECISIONS.md` entry before or immediately after it's made, never batched at the end.
 
