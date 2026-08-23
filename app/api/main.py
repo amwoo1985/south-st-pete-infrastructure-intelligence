@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api import documents, health, query, sources
 from app.api.schema import apply_document_uploads_schema
@@ -59,3 +61,17 @@ app.include_router(query.router)
 app.include_router(health.router)
 app.include_router(sources.router)
 app.include_router(documents.router)
+
+# Static UI (DECISIONS #105) — plain HTML/JS/CSS served by this same app,
+# no separate container. Mounted at "/" LAST, after every API router
+# above: Starlette matches routes in registration order, so /query,
+# /health, /sources/{doc_id}, /documents/upload (and FastAPI's own
+# /docs, /openapi.json, added at FastAPI() construction time, earlier
+# still) all match their explicit routes first. This Mount only catches
+# whatever's left — index.html at "/" (html=True serves it for any path
+# under the mount with no exact file match, e.g. client-side routes),
+# plus /style.css and /app.js as static files. Mounting this BEFORE the
+# routers would let it shadow every API route with a 404, since a Mount
+# matches its whole path prefix greedily regardless of what's under it.
+_STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="static")
