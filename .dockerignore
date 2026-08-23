@@ -1,0 +1,15 @@
+# Keep build context small and never let secrets or local state into the
+# image (per .claude/rules/deploy.md — secrets never live in the image).
+.venv/
+.git/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+tests/
+scripts/
+DECISIONS.md
+PLAN.md
+CLAUDE.md

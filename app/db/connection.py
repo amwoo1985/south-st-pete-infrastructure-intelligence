@@ -1,7 +1,10 @@
 """Connection helper for the local dev Postgres+pgvector stack that
 deploy-infra brought up (DECISIONS #68-70) — docker-compose's ``db``
-service, bound to ``127.0.0.1``, credentials in the gitignored repo-root
-``.env`` as ``LOCAL_DB_*`` (DECISIONS #69).
+service, credentials in the gitignored repo-root ``.env`` as
+``LOCAL_DB_*`` (DECISIONS #69). Connects to ``127.0.0.1`` by default
+(host-run callers) or ``LOCAL_DB_HOST`` when set (containerized
+``api``/``worker`` services connect to the Compose service name ``db``
+instead — see docker-compose.yml).
 
 This module owns *connecting* to that already-running, already-initialized
 database. It does not create the ``vector`` extension (DECISIONS #70 —
@@ -55,7 +58,13 @@ def get_connection() -> psycopg.Connection:
         _env(name)
 
     conn = psycopg.connect(
-        host="127.0.0.1",
+        # Defaults to 127.0.0.1 for every host-run caller (pytest, dev
+        # scripts, `uvicorn --reload` run from the host) — unchanged
+        # behavior, no .env edit required. Containerized services
+        # (docker-compose.yml's `api`/`worker`) override this to `db`,
+        # the Compose service name, since inside a container 127.0.0.1
+        # means the container itself, not the `db` service.
+        host=os.environ.get("LOCAL_DB_HOST", "127.0.0.1"),
         port=os.environ.get("LOCAL_DB_PORT", "5432"),
         user=_env("LOCAL_DB_USER"),
         password=_env("LOCAL_DB_PASSWORD"),
