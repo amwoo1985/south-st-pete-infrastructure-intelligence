@@ -20,3 +20,6 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Claude Code personal overrides (permissions, etc.) — never shared via git
+.claude/settings.local.json
