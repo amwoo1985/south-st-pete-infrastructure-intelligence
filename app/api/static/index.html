@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>South St. Petersburg Infrastructure Intelligence</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>South St. Petersburg Infrastructure Intelligence</h1>
+    <p class="subtitle">
+      Ask a question about local government meeting records, grants, and CBA
+      negotiation documents. Answers are grounded only in the indexed corpus.
+    </p>
+  </header>
+
+  <main>
+    <section id="query-section">
+      <form id="query-form">
+        <label for="question">Question</label>
+        <textarea
+          id="question"
+          name="question"
+          rows="3"
+          maxlength="2000"
+          placeholder="e.g. What community benefits has Duke Energy committed to in the CBA negotiations?"
+          required
+        ></textarea>
+        <button type="submit" id="query-submit">Ask</button>
+      </form>
+
+      <div id="query-status" class="status" hidden></div>
+
+      <div id="answer-block" hidden>
+        <h2>Answer</h2>
+        <p id="answer-text"></p>
+      </div>
+
+      <div id="not-in-corpus-block" class="not-in-corpus" hidden>
+        <p>This isn't covered in the indexed corpus yet.</p>
+      </div>
+
+      <div id="error-block" class="error" hidden>
+        <p id="error-text"></p>
+      </div>
+
+      <div id="citations-block" hidden>
+        <h2>Sources</h2>
+        <ul id="citations-list"></ul>
+      </div>
+    </section>
+
+    <section id="upload-section">
+      <h2>Upload a document</h2>
+      <p class="subtitle">
+        Add a PDF, DOCX, or TXT file to the corpus (max 20MB).
+      </p>
+      <form id="upload-form">
+        <input type="file" id="upload-file" name="file" accept=".pdf,.docx,.txt" required />
+        <button type="submit" id="upload-submit">Upload</button>
+      </form>
+      <div id="upload-status" class="status" hidden></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
