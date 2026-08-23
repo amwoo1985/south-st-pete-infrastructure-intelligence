@@ -180,6 +180,13 @@ function renderUploadStatus(body, isError) {
     // file_hash and short-circuits to the current stored status instead
     // of reprocessing.
     lines.push("Still processing — resubmit the same file to check status.");
+    // api-review pre-commit finding (DECISIONS #114): a resubmit of a
+    // file whose prior attempt failed used to look identical to a
+    // brand-new "processing" response — the reason was captured server-
+    // side but never reached this UI. Surface it now if present.
+    if (body.previous_failure_reason) {
+      lines.push(`Previous attempt failed: ${body.previous_failure_reason}`);
+    }
   }
   uploadStatusEl.textContent = lines.join(" ");
   show(uploadStatusEl);

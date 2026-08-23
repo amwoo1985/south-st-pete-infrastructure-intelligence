@@ -98,3 +98,12 @@ class DocumentUploadResponse(BaseModel):
     chunk_count: int | None = None
     uploaded_at: datetime
     completed_at: datetime | None = None
+    previous_failure_reason: str | None = Field(
+        default=None,
+        description=(
+            "Set only when this response is retrying a file_hash whose prior attempt "
+            "ended in status='failed' — the stored reason for that prior failure, "
+            "surfaced so a client doesn't have to re-fail identically before learning "
+            "why (api-review pre-commit finding, DECISIONS #114)."
+        ),
+    )

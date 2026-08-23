@@ -76,6 +76,53 @@ def test_embed_and_insert_chunk_skips_and_makes_no_api_call_when_chunk_id_exists
     assert client.embeddings.create.call_count == 1
 
 
+def test_advisory_lock_serializes_concurrent_sessions_on_the_same_key():
+    """api-review pre-commit finding (DECISIONS #114): the skip-check in
+    embed_and_insert_chunk (and the equivalent file_hash check in
+    app/api/documents.py) used to be plain check-then-act with no lock —
+    two callers racing on the same key could both see "not yet done" and
+    both pay for a redundant external API call before either committed.
+    The fix is `pg_advisory_xact_lock(hashtext(key)::bigint)` acquired
+    before the check. This test proves the primitive itself actually
+    blocks a second, independent session on the same key until the first
+    session's transaction ends — not just that the SQL is valid syntax
+    (every other test in this file already proves that by passing)."""
+    import threading
+
+    from app.db.connection import get_connection
+
+    key = "advisory-lock-serialization-test-key"
+    lock_sql = "SELECT pg_advisory_xact_lock(hashtext(%s)::bigint)"
+
+    conn_a = get_connection()
+    conn_b = get_connection()
+    try:
+        with conn_a.cursor() as cur:
+            cur.execute(lock_sql, (key,))  # acquired; conn_a's transaction stays open
+
+        acquired_b = threading.Event()
+
+        def acquire_on_b() -> None:
+            with conn_b.cursor() as cur:
+                cur.execute(lock_sql, (key,))  # should block until conn_a commits/rolls back
+            acquired_b.set()
+
+        t = threading.Thread(target=acquire_on_b)
+        t.start()
+        # conn_b must NOT have acquired the lock while conn_a still holds it.
+        still_blocked = not acquired_b.wait(timeout=0.5)
+        assert still_blocked, "second session acquired the lock while the first still held it"
+
+        conn_a.commit()  # releases conn_a's advisory lock
+        t.join(timeout=5)
+        assert acquired_b.is_set(), "second session never acquired the lock after the first released it"
+    finally:
+        conn_a.rollback()
+        conn_b.rollback()
+        conn_a.close()
+        conn_b.close()
+
+
 # --- Insert correctness: every Chunk field lands in the right column -------
 
 
