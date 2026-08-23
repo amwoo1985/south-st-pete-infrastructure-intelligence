@@ -38,8 +38,13 @@ def _env(name: str) -> str:
 
 def get_connection() -> psycopg.Connection:
     """Opens one connection to the local dev DB, with the pgvector adapter
-    registered so a ``vector`` column can be read/written as a plain
-    Python ``list[float]`` (via pgvector.psycopg — see DECISIONS #71).
+    registered (via pgvector.psycopg — see DECISIONS #71) so a ``vector``
+    column can be written as a plain Python ``list[float]``. On read, a
+    ``vector`` column comes back as a ``pgvector.vector.Vector`` object,
+    NOT a plain ``list[float]`` — call ``.to_list()`` to get one (confirmed
+    live against the real ``chunks`` table by app/rag/retrieval.py, the
+    first code in this repo to actually SELECT a ``vector`` column back
+    out rather than only ever writing it; see DECISIONS #92).
 
     Autocommit is OFF (psycopg's default): callers control their own
     commit()/rollback() boundaries. This matters for the embed-and-insert
