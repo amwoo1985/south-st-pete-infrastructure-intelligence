@@ -31,6 +31,52 @@ services:
       timeout: 5s
       retries: 10
 
+  # Phase J: one image (repo-root Dockerfile), config-driven role selection
+  # per DECISIONS #8 — `api` and `worker` below share the same build, differ
+  # only in `command:`. Neither service's environment block contains a
+  # secret literal: every value is `${VAR}` interpolation from the
+  # gitignored repo-root .env (Compose auto-loads it), per
+  # .claude/rules/deploy.md's "secrets never live in committed config".
+  api:
+    build: .
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Overrides connection.py's 127.0.0.1 default: inside this container,
+      # 127.0.0.1 is the container itself, not the `db` service — `db` is
+      # the Compose service name, resolvable via Compose's internal DNS.
+      LOCAL_DB_HOST: db
+      LOCAL_DB_USER: ${LOCAL_DB_USER:?LOCAL_DB_USER must be set in .env}
+      LOCAL_DB_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD must be set in .env}
+      LOCAL_DB_NAME: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
+      LOCAL_DB_PORT: 5432
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
+    ports:
+      # Localhost only, matching `db`'s own binding above — this is a local
+      # dev stack and /documents/upload has no auth yet (CLAUDE.md's open
+      # item), so this should not be reachable from the LAN.
+      - "127.0.0.1:8000:8000"
+
+  worker:
+    build: .
+    # Fixed module path per this round's crawler-specialist contract —
+    # app/granicus/run_worker.py may not exist at image-build time (parallel
+    # work); the path itself is not this service's decision to make.
+    command: python -m app.granicus.run_worker
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LOCAL_DB_HOST: db
+      LOCAL_DB_USER: ${LOCAL_DB_USER:?LOCAL_DB_USER must be set in .env}
+      LOCAL_DB_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD must be set in .env}
+      LOCAL_DB_NAME: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
+      LOCAL_DB_PORT: 5432
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
+    # No port mapping — not an HTTP service.
+
 volumes:
   pgdata:
     # Named volume — persists across `docker-compose down`/`up`.
