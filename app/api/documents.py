@@ -31,6 +31,17 @@ Chunk ids are derived deterministically from file_hash + position
 bytes produces the SAME chunk_ids and upserts cleanly via
 app.embeddings.pipeline.embed_and_insert_chunk's ON CONFLICT logic,
 rather than duplicating rows or re-paying for chunks already embedded.
+
+Concurrency (api-review pre-commit finding, DECISIONS #114): the above
+was originally plain check-then-act with no lock, so two requests for the
+identical file_hash arriving close together could both read "no
+completed row yet" and both schedule a background embedding job — a real
+double OpenAI charge, since the write side alone (ON CONFLICT) doesn't
+prevent the redundant API call from happening in the first place.
+`upload_document()` now takes a `pg_advisory_xact_lock` keyed on
+file_hash before its read, serializing concurrent requests for the same
+hash; `embed_and_insert_chunk` takes the equivalent per-chunk_id lock for
+the same reason at the chunk level.
 """
 
 from __future__ import annotations
@@ -41,7 +52,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import psycopg
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 
 from app.api.dependencies import get_db_conn, get_openai_client
 from app.api.schemas import DocumentUploadResponse
@@ -60,16 +80,19 @@ router = APIRouter()
 # page scans) while still bounding worst-case memory/parse time for a
 # single request.
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-# Known gap (self-review, this round, not fixed here — flagged to the
-# orchestrator/deploy-infra): this check runs AFTER `await file.read()`
-# has already materialized the full upload as one in-memory bytes
-# object, so it stops oversized files from being parsed/chunked/embedded,
-# but does NOT stop a client from forcing this process to buffer an
-# arbitrarily large request body first. A hard body-size limit enforced
-# one layer up — at the reverse proxy / ALB, before a request reaches
-# this app at all — is the real fix for that; this app-level check is
-# real defense-in-depth for the "how far does the request get" question,
-# not a substitute for that.
+# This check runs AFTER `await file.read()` has already materialized the
+# full upload as one in-memory bytes object, so on its own it stops
+# oversized files from being parsed/chunked/embedded but does NOT stop a
+# client from forcing this process to buffer an arbitrarily large request
+# body first. `upload_document()` now checks the request's Content-Length
+# header (when the client sends one) and rejects before ever calling
+# `file.read()` — api-review pre-commit finding, DECISIONS #114 — which
+# closes the gap for any honest client. Still NOT a substitute for a hard
+# body-size limit one layer up (reverse proxy/ALB, before a request
+# reaches this app at all): a client that omits Content-Length or uses
+# chunked transfer-encoding bypasses the header check and still hits this
+# post-read check unprotected. That proxy-level limit remains
+# deploy-infra's open item, not resolved here.
 
 _EXTENSION_TO_KIND = {".pdf": "pdf", ".docx": "docx", ".txt": "txt"}
 _CONTENT_TYPE_TO_KIND = {
@@ -84,7 +107,7 @@ _CONTENT_TYPE_TO_KIND = {
 _KIND_TO_CANONICAL_CONTENT_TYPE = {v: k for k, v in _CONTENT_TYPE_TO_KIND.items()}
 
 _SELECT_UPLOAD_SQL = (
-    "SELECT status, original_filename, chunk_count, uploaded_at, completed_at "
+    "SELECT status, original_filename, chunk_count, uploaded_at, completed_at, failure_reason "
     "FROM document_uploads WHERE file_hash = %s"
 )
 
@@ -139,11 +162,29 @@ def _determine_kind(filename: str | None, content_type: str | None) -> str | Non
 
 @router.post("/documents/upload", response_model=DocumentUploadResponse, status_code=202)
 async def upload_document(
+    request: Request,
     background_tasks: BackgroundTasks,
     response: Response,
     file: UploadFile = File(...),
     conn: psycopg.Connection = Depends(get_db_conn),
 ) -> DocumentUploadResponse:
+    # api-review pre-commit finding (DECISIONS #114): reject an
+    # honest-Content-Length oversized request BEFORE buffering it, not
+    # just after. This is a real improvement over the post-read-only
+    # check below for the common case (browsers/curl send a real
+    # Content-Length for a multipart upload) but is NOT a substitute for
+    # a hard body-size limit one layer up (reverse proxy/ALB) — a client
+    # that omits Content-Length or uses chunked transfer still reaches
+    # the post-read check unprotected, which is exactly why that
+    # deploy-infra follow-up (see MAX_UPLOAD_BYTES's comment below)
+    # remains open, not closed by this.
+    content_length = request.headers.get("content-length")
+    if content_length is not None and content_length.isdigit() and int(content_length) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)}MB upload limit.",
+        )
+
     raw_bytes = await file.read()
 
     if not raw_bytes:
@@ -165,39 +206,79 @@ async def upload_document(
     filename = file.filename or f"upload.{kind}"
     content_type = _KIND_TO_CANONICAL_CONTENT_TYPE[kind]
 
-    with conn.cursor() as cur:
-        cur.execute(_SELECT_UPLOAD_SQL, (file_hash,))
-        existing = cur.fetchone()
+    try:
+        # Advisory lock BEFORE the read (api-review pre-commit finding,
+        # DECISIONS #114): without it, two requests for the identical
+        # file_hash arriving close together can both read "no completed
+        # row yet" and both upsert-and-schedule a background task — a
+        # real double embedding-API charge, not just a redundant DB
+        # write (chunk_id ON CONFLICT already made the write side safe).
+        # Transaction-scoped: a second request for the same file_hash
+        # blocks here until the first's transaction commits, then reads
+        # whatever state the first one just left behind.
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s)::bigint)", (file_hash,))
+            cur.execute(_SELECT_UPLOAD_SQL, (file_hash,))
+            existing = cur.fetchone()
 
-    if existing is not None:
-        status, original_filename, chunk_count, uploaded_at, completed_at = existing
-        if status == "completed":
-            logger.info(
-                "upload file_hash=%s: already completed (%d chunks) — short-circuit, "
-                "no reprocessing",
-                file_hash,
+        previous_failure_reason: str | None = None
+        if existing is not None:
+            (
+                status,
+                original_filename,
                 chunk_count,
-            )
-            response.status_code = 200
-            return DocumentUploadResponse(
-                file_hash=file_hash,
-                status="completed",
-                original_filename=original_filename,
-                chunk_count=chunk_count,
-                uploaded_at=uploaded_at,
-                completed_at=completed_at,
-            )
-        # status in ('processing', 'failed') -> retry-eligible, falls
-        # through to the upsert-and-reprocess path below exactly like a
-        # brand-new file_hash (see module docstring).
+                uploaded_at,
+                completed_at,
+                failure_reason,
+            ) = existing
+            if status == "completed":
+                conn.commit()  # release the advisory lock — no more writes this request
+                logger.info(
+                    "upload file_hash=%s: already completed (%d chunks) — short-circuit, "
+                    "no reprocessing",
+                    file_hash,
+                    chunk_count,
+                )
+                response.status_code = 200
+                return DocumentUploadResponse(
+                    file_hash=file_hash,
+                    status="completed",
+                    original_filename=original_filename,
+                    chunk_count=chunk_count,
+                    uploaded_at=uploaded_at,
+                    completed_at=completed_at,
+                )
+            # status in ('processing', 'failed') -> retry-eligible, falls
+            # through to the upsert-and-reprocess path below exactly like
+            # a brand-new file_hash (see module docstring). If the prior
+            # attempt failed, surface why in the response below rather
+            # than silently discarding a reason that was already
+            # captured and stored (.claude/rules/crawler.md fail-loud
+            # spirit, applied at the user-facing layer).
+            if status == "failed":
+                previous_failure_reason = failure_reason
 
-    with conn.cursor() as cur:
-        cur.execute(
-            _UPSERT_PROCESSING_SQL,
-            (file_hash, filename, content_type, datetime.now(timezone.utc)),
-        )
-        (uploaded_at,) = cur.fetchone()
-    conn.commit()
+        with conn.cursor() as cur:
+            cur.execute(
+                _UPSERT_PROCESSING_SQL,
+                (file_hash, filename, content_type, datetime.now(timezone.utc)),
+            )
+            (uploaded_at,) = cur.fetchone()
+        conn.commit()
+    except Exception as exc:
+        try:
+            conn.rollback()
+        except Exception as rollback_exc:
+            logger.error(
+                "upload file_hash=%s: rollback failed after pre-check/upsert error: %s",
+                file_hash,
+                rollback_exc,
+            )
+        logger.error("upload file_hash=%s: database error during pre-check/upsert: %s", file_hash, exc)
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred. Please try again later.",
+        ) from exc
 
     background_tasks.add_task(_process_upload_background, file_hash, raw_bytes, filename, kind)
 
@@ -209,6 +290,7 @@ async def upload_document(
         chunk_count=None,
         uploaded_at=uploaded_at,
         completed_at=None,
+        previous_failure_reason=previous_failure_reason,
     )
 
 

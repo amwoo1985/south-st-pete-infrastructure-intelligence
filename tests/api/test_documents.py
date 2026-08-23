@@ -81,6 +81,7 @@ def test_new_upload_returns_202_and_schedules_processing(client, mock_background
         assert body["status"] == "processing"
         assert body["chunk_count"] is None
         assert body["completed_at"] is None
+        assert body["previous_failure_reason"] is None
 
         mock_background.assert_called_once()
         called_hash, called_bytes, called_filename, called_kind = mock_background.call_args[0]
@@ -138,6 +139,11 @@ def test_failed_upload_is_retried_and_failure_reason_cleared(client, mock_backgr
         assert resp.status_code == 202
         body = resp.json()
         assert body["status"] == "processing"
+        # api-review pre-commit finding (DECISIONS #114): the prior
+        # failure_reason must reach the response, not just get cleared
+        # silently in the DB — otherwise a user retrying a permanently-
+        # broken file never learns why.
+        assert body["previous_failure_reason"] == "RuntimeError: something broke"
 
         mock_background.assert_called_once()
 
@@ -172,7 +178,11 @@ def test_stuck_processing_upload_is_treated_as_retry_eligible(client, mock_backg
             files={"file": ("stuck.txt", content, "text/plain")},
         )
         assert resp.status_code == 202
-        assert resp.json()["status"] == "processing"
+        body = resp.json()
+        assert body["status"] == "processing"
+        # A stuck-'processing' row has no failure_reason to surface — this
+        # branch is not the "failed" branch, so it must stay None.
+        assert body["previous_failure_reason"] is None
         mock_background.assert_called_once()
     finally:
         _cleanup(file_hash)

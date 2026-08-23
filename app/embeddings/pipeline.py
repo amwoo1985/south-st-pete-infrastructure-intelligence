@@ -129,8 +129,30 @@ def embed_and_insert_chunk(
     `commit`: pass False when the caller manages its own transaction (e.g.
     a test that wants to roll back everything at the end) — see
     tests/db/test_pipeline.py.
+
+    Concurrency (api-review pre-commit finding, DECISIONS #114): the
+    skip-check above is plain check-then-act with no lock, so two callers
+    racing on the same chunk_id (e.g. two concurrent uploads whose content
+    happens to produce the same chunk) could both see "not yet embedded"
+    and both pay for the same embedding API call before either commits.
+    `pg_advisory_xact_lock` closes that window: it blocks a second caller
+    on the same chunk_id until the first's transaction commits (or rolls
+    back) — transaction-scoped, so it needs no explicit unlock, and it
+    fits this module's existing commit-per-chunk boundary exactly. Once
+    unblocked, the second caller's own `chunk_already_embedded` check
+    correctly sees the row the first caller just committed and skips.
     """
+    with conn.cursor() as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s)::bigint)", (chunk.chunk_id,))
+
     if chunk_already_embedded(conn, chunk.chunk_id):
+        if commit:
+            # Release the advisory lock now rather than holding it open
+            # until whatever this connection's next unrelated commit
+            # happens to be — a plain "skip" outcome has nothing else to
+            # commit, so there's no reason to keep another chunk_id's
+            # lock request waiting behind this one.
+            conn.commit()
         return "skipped"
 
     # Embed first — pure API call, no DB side effect yet, nothing to
