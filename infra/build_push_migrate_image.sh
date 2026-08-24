@@ -19,6 +19,14 @@ export AWS_DEFAULT_REGION=us-east-1
 # build silently uses the root .dockerignore and COPY scripts/ hard-fails.
 export DOCKER_BUILDKIT=1
 
+# Dirty-tree guard (deploy-review finding, DECISIONS #137): see
+# build_push_app_image.sh's identical check for the full rationale — a
+# commit-SHA image tag must actually match that commit's code.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Refusing to build: working tree has uncommitted changes. Commit or stash first — the image tag below is a commit SHA and must match what it's built from." >&2
+  exit 1
+fi
+
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 REPO="${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/south-st-pete-app-migrate"
 TAG="$(git rev-parse --short HEAD)"
