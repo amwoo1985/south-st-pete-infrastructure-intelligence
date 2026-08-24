@@ -25,6 +25,17 @@ cd "$(dirname "$0")/.."
 : "${AWS_PROFILE:?Set AWS_PROFILE}"
 export AWS_DEFAULT_REGION=us-east-1
 
+# Dirty-tree guard (deploy-review finding, DECISIONS #137): this script tags
+# the pushed image with the current commit SHA so anyone reading ECR later
+# can trust "this tag == this commit's code." A dirty working tree breaks
+# that promise silently — the built image would contain uncommitted changes
+# under a tag that claims to be a specific, inspectable commit. Fail loud
+# instead of tagging a lie.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Refusing to build: working tree has uncommitted changes. Commit or stash first — the image tag below is a commit SHA and must match what it's built from." >&2
+  exit 1
+fi
+
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 REPO="${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/south-st-pete-app"
 TAG="$(git rev-parse --short HEAD)"
