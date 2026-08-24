@@ -1,0 +1,15 @@
+# Overrides the root .dockerignore for infra/Dockerfile.migrate builds only
+# (BuildKit convention: <dockerfile>.dockerignore takes precedence). The app
+# image deliberately excludes tests/ and scripts/; this migration image
+# deliberately needs them (see Dockerfile.migrate's own header comment).
+.venv/
+.git/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+DECISIONS.md
+PLAN.md
+CLAUDE.md
