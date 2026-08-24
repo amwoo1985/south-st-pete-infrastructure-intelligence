@@ -1,0 +1,38 @@
+# One-off / on-demand migration & corpus-loading image — NOT the deployed
+# app image (see ../Dockerfile for that). Adds scripts/ and tests/fixtures/
+# on top of the same base, both deliberately excluded from the app image by
+# .dockerignore (secrets/local-state hygiene, DECISIONS deploy rules) but
+# needed here to run scripts/run_embedding_pipeline.py and
+# scripts/embed_granicus_transcripts.py inside the VPC against RDS, since
+# RDS is not publicly reachable (DECISIONS #120) and these scripts need
+# fixture/source files no running service container carries.
+#
+# Build and run manually when the corpus needs (re)loading against RDS;
+# not part of the docker-compose stack, not part of any CI/deploy
+# pipeline. Same base-image pin as the app image, no `:latest`.
+#
+# Build via infra/build_push_migrate_image.sh, not a bare `docker build`:
+# the sibling infra/Dockerfile.migrate.dockerignore override (which is
+# what lets COPY scripts/ and COPY tests/fixtures/ below actually see
+# those directories, despite the root .dockerignore excluding both) is a
+# BuildKit-only feature. A legacy (non-BuildKit) `docker build` silently
+# falls back to the root .dockerignore and this build hard-fails at the
+# `COPY scripts/` step — loud, not a secret-smuggling risk, but confusing
+# without this note. The build script sets DOCKER_BUILDKIT=1 explicitly.
+FROM python:3.12.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ app/
+COPY scripts/ scripts/
+COPY tests/fixtures/ tests/fixtures/
+# One-off Granicus data-relay export (gitignored, not part of the app
+# image) — see scripts/load_granicus_export.py's docstring for why this
+# exists (no network path from AWS to a developer's local Postgres).
+COPY infra/migration_data/ infra/migration_data/
+
+# No CMD — the one-off `aws ecs run-task` invocation supplies the
+# script + mode to run via a command override.
