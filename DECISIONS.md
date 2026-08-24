@@ -1314,3 +1314,13 @@ Decision: Amber explicitly accepted #129's disclosed tradeoff (extending the pla
 
 Why: A schedule that exists in `infra/` as a ready-to-run script isn't the same claim as a schedule that AWS will actually fire — this entry closes the gap between "prepared" (#126/#127/#129's language) and "live," with the exact live resource ARNs, role scope, and cron expression checked against what was actually authorized rather than assumed from the script's own comments. Matches this project's standing "should work" vs. "verified working" distinction (DECISIONS #104/#125/#130).
 Date: 2026-08-24
+
+## #135 — Second real, disclosed secret exposure this session: `grep -n "OPENAI_API_KEY" .env` printed the live key into the orchestrating session's own transcript — new `.claude/rules/secrets.md` added
+
+Decision: While answering "where do I put the new key" during #131's still-pending rotation, a direct `grep -n "OPENAI_API_KEY" .env .env.example` was run to locate the line number to point Amber to. Unlike #131's denylist miss (`grep -v PASSWORD` not matching a key name that doesn't contain "PASSWORD"), this was an allowlist match that still printed the full line — including the value — because no output-shaping flag (`-o`, `-c`) was used. The value is now in this session's transcript, on top of #131's still-unrotated exposure of the same key.
+
+Self-reported immediately, not caught after the fact by review — same "own it plainly" discipline as #131 and #120. No attempt made to retract or overwrite the message; a session transcript isn't a retractable medium, so the only real mitigation is rotation (already recommended and still outstanding from #131 — this doesn't create a second rotation obligation, it reinforces the existing one).
+
+Added `.claude/rules/secrets.md`, referenced from this file's own "Workflow" section, codifying: no `grep`/`cat`/`echo` against a secrets file without an output-shaping flag that excludes the value; use `grep -c`/`grep -o` for existence/location checks; source `.env` into shell env vars (no echo) when a value is actually needed in a command. Binding on every specialist and on direct shell commands in the orchestrating session alike — this exposure happened in the latter, which #131's original fix (specialist-only sourcing discipline) didn't cover.
+Why: Two real exposures of the same shape (denylist miss, then allowlist-without-shaping) means the failure mode is "printing a secrets file without redirecting output" in general, not a single fixable command — a rule that's discoverable by every future session (via CLAUDE.md's Workflow section, read at Step 0) is the actual fix; asking future-me to "just be careful" a third time is not.
+Date: 2026-08-24

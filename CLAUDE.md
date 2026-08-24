@@ -15,6 +15,8 @@ Conflating these two was the exact ambiguity that cost ~2 months on R-EX at Vide
 
 Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra`, `crawler` for building; `rag-review`, `api-review`, `deploy-review`, `crawler-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
 
+`.claude/rules/secrets.md` governs any command that touches `.env` or another file carrying a live credential — binding on every specialist and on direct shell commands in this session alike (see DECISIONS #131, #135).
+
 Every non-trivial design decision gets a numbered `DECISIONS.md` entry before or immediately after it's made, never batched at the end.
 
 This mirrors the agentic workflow used to build R-EX at VideoAmp (orchestrator + narrow specialists + adversarial reviewers + a numbered decisions log), sized for a solo real-tool build instead of an enterprise monorepo.
