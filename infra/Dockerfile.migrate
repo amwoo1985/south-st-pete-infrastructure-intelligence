@@ -23,6 +23,18 @@ FROM python:3.12.10-slim
 
 WORKDIR /app
 
+# System dependency: ffmpeg, same reason and same package as ../Dockerfile's
+# copy of this line — this image COPYs the whole app/ tree (below), which
+# includes app/granicus/audio_split.py and app/granicus/worker.py
+# (DECISIONS #130's duration-aware chunked transcription, pydub-driven,
+# shells out to the ffmpeg binary). ../Dockerfile installed ffmpeg in
+# 6374cc2 ("Add ffmpeg to image..."), a separate, earlier commit than #130's
+# 05f9943 — this Dockerfile was never given the same line, a real gap, not a
+# hypothetical one: a real run against an oversized meeting file on this
+# task family hit `FileNotFoundError: ffprobe`. See DECISIONS #137.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
