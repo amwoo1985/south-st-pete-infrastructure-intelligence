@@ -2,8 +2,8 @@
   "family": "south-st-pete-worker",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
+  "cpu": "2048",
+  "memory": "9216",
   "executionRoleArn": "arn:aws:iam::516887747774:role/south-st-pete-ecs-task-execution-role",
   "containerDefinitions": [
     {
