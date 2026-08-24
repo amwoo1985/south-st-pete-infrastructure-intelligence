@@ -47,6 +47,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # without this file needing to change again.
 COPY app/ app/
 
+# Also copy scripts/ — deploy-review pre-commit finding (this round): the
+# new south-st-pete-granicus-worker task family runs
+# scripts/run_granicus_worker_once.py as its container command, against
+# THIS image (not infra/Dockerfile.migrate's separate image, which already
+# COPYs scripts/ for its own on-demand tooling use). Without this line
+# every scheduled invocation would fail immediately with
+# ModuleNotFoundError/FileNotFoundError and never process a job.
+COPY scripts/ scripts/
+
 # No secrets, no baked role, no EXPOSE tied to one service — the api
 # service's port mapping lives in docker-compose.yml. No CMD/ENTRYPOINT:
 # every service in docker-compose.yml supplies its own `command:`.
