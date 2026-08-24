@@ -2,8 +2,8 @@
   "family": "south-st-pete-migrate",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "512",
-  "memory": "1024",
+  "cpu": "2048",
+  "memory": "9216",
   "executionRoleArn": "arn:aws:iam::516887747774:role/south-st-pete-ecs-task-execution-role",
   "containerDefinitions": [
     {
