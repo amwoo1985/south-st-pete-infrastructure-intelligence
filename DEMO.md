@@ -26,11 +26,11 @@ Ask: **"What did the Budget, Finance and Taxation Committee discuss on April 9th
 
 Expect: a correct answer naming the real external auditor and findings, with citations whose `doc_type` is `granicus_transcript` — proving the full Granicus pipeline (registration → transcription → chunking → embedding → retrieval) works end to end on real audio (DECISIONS #116, #117).
 
-## 5. Known limitation, shown not hidden
+## 5. Full-length Council meeting, transcribed and cited
 
-Ask about a topic that would require a *full-length* City Council meeting (not a short committee meeting) that hasn't been transcribed — e.g. anything discussed only in one of the 3+ hour Council sessions.
+Ask about something discussed only in one of the 3+ hour Council sessions (not a short committee meeting) — e.g. the Sky Isle/Veridian loan maturity-date extension discussed 2026-08-06.
 
-Expect: `not_in_corpus: true`. Talking point: this isn't a bug — full Council sessions exceed `whisper-1`'s 25MB limit at this Granicus instance's real bitrate (DECISIONS #116), a real, dated, understood gap with a named (not-yet-authorized) fix, not an unknown unknown.
+Expect: a correct, cited answer with `doc_type: granicus_transcript`. Talking point: full Council sessions (150-230MB) exceed `whisper-1`'s 25MB per-request limit, so this only works because the system automatically splits long audio into safe pieces at real audio boundaries, transcribes each, and stitches the result back together — proven end-to-end against a real 3.24-hour meeting for about $1.17 (DECISIONS #130). This used to be the tool's single biggest known gap (DECISIONS #86, #116); it's fixed now, and this is the beat that proves it.
 
 ## 6. Health check
 

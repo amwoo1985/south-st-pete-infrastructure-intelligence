@@ -1,19 +1,37 @@
-# South St. Petersburg Infrastructure Intelligence
+# Blaq Blob
 
-A RAG tool over local government meeting records, grants, and transcribed City Council audio — built for the South St. Petersburg Energy Coalition's Community Benefits Agreement negotiation with the City of St. Petersburg, residents, and Duke Energy Florida. This is a real operational tool used to ground CBA negotiation research in cited primary sources, not a portfolio demo.
+*(Formerly "South St. Petersburg Infrastructure Intelligence," formerly "cba-rag-assistant" — see `DECISIONS.md` #9, #136.)*
 
-Every non-trivial design decision made while building this is recorded, numbered, and dated in [`DECISIONS.md`](DECISIONS.md) — currently 118 entries. This README summarizes; `DECISIONS.md` is the record of record.
+A research tool that reads through local government meeting records, grant listings, and transcribed City Council audio so you can ask it a plain question and get back an answer with a real citation attached — not a guess, not a summary from memory, an answer traced back to the actual document or meeting it came from. Built for the South St. Petersburg Energy Coalition's Community Benefits Agreement negotiation with the City of St. Petersburg and Duke Energy Florida, and built to keep working for whoever runs this negotiation next, not just for the person who built it.
+
+Every non-trivial decision made while building this — including this rename — is recorded, numbered, and dated in [`DECISIONS.md`](DECISIONS.md). This README is the summary. If you're taking this over and want to know *why* something works the way it does, not just *that* it does, `DECISIONS.md` is the place to look — search it for the decision number cited next to any claim below.
 
 ## What it does
 
 Ask a plain-language question about local grants, meeting agendas, or City Council business. The system:
 
-1. Embeds the question and retrieves the most relevant chunks from a corpus of crawled/transcribed content, filtered by a similarity threshold (never blind top-k).
-2. Generates an answer using only the retrieved context — never the model's general knowledge.
-3. Returns the answer with a citation for every claim: source URL, publish date, and a human-readable section label.
-4. If nothing relevant is in the corpus, says so explicitly (`not_in_corpus: true`) instead of guessing.
+1. Looks through the archive for the pieces of text most relevant to your question.
+2. Writes an answer using only what it actually found — never fills gaps from general internet knowledge.
+3. Attaches a citation to every claim: source URL, publish date, and a human-readable section label.
+4. If nothing relevant is in the archive, it says so plainly instead of guessing.
 
-A live document can also be uploaded (PDF/DOCX/TXT) and is queryable with citations within seconds, through the identical retrieval/grounding path as crawled content — the grounding contract doesn't relax for user-supplied text.
+You can also upload a document (PDF/DOCX/TXT — a CBA draft, a memo, anything) and ask questions about it within seconds, through the exact same citation-and-grounding process as everything else in the archive.
+
+## If you're taking this over, start here
+
+A few questions a successor would reasonably ask, answered plainly:
+
+**Why won't it just answer from what it "knows"?** Because in a negotiation, a confident-sounding wrong answer is worse than no answer — it can get repeated in a meeting and used against you. The system is built so it can *only* speak from documents it can point back to. If it can't find the answer in the archive, it tells you that instead of making something up. This rule has no exceptions, anywhere in the system.
+
+**Why does it only pull from a fixed list of sources instead of searching everything?** An open-ended web crawler is a liability — it can get this project blocked from a site, or quietly pull in something unreliable without anyone noticing. The source list is closed on purpose (see `DECISIONS.md` #11); adding a new one is a deliberate decision, not something that happens by accident.
+
+**Why did the City Council audio take so long to work right?** The hosted transcription service has a hard 25MB-per-file limit, and a full 3+ hour Council meeting recording is 150-230MB. Early on, full meetings just failed outright (a known, disclosed gap — `DECISIONS.md` #86, #116). That's fixed now: the system automatically splits long audio into safe-sized pieces at real audio boundaries (never a raw byte cut, which could corrupt a word mid-split) before sending each piece off, then stitches the transcript back together. Verified against a real 3-hour-plus meeting — see `DECISIONS.md` #130.
+
+**What does this cost to run, and who's watching that?** The database and app run in the cloud 24/7, and transcribing months of Council audio isn't free. There's a live monthly budget alert (see "Ongoing operations" below) that emails a warning at 50%, 90%, and 100% of a $100/month threshold — check that inbox. If the CBA work picks up and costs climb, the threshold in `.env` is a one-line change plus a re-run of `infra/register_cost_alerts.sh`.
+
+**What breaks on its own, and how would I know?** A crawler will break the day its target website changes its layout — that's normal, expected, and it's designed to fail loudly (an error in the job's status, never a silent "nothing new found"). There's no dashboard for this yet; checking means looking at the crawler/transcription job tables directly. Named as a real gap below, not hidden.
+
+**Who else can reach this thing?** The live deployment has a public web address and the document-upload endpoint has no login requirement — a deliberate, disclosed shortcut, not an oversight. Don't upload a real, sensitive negotiation draft to the live instance until that's addressed.
 
 ## Architecture
 
@@ -22,7 +40,8 @@ Sources (closed list, DECISIONS #11)
   ├─ Tier 1 (static HTML crawlers): Legistar, stpete.org grants, Pinellas CF grants,
   │  Pinellas HCD, SPHA, St. Pete Council votes
   └─ Tier 1.5 (Granicus sub-pipeline): RSS-adjacent meeting discovery → human-resolved
-     MP3 URL → async transcription worker (whisper-1) → transcript
+     MP3 URL → async transcription worker (whisper-1, duration-aware splitting for
+     long meetings, DECISIONS #130) → transcript
        ↓
 Chunking (app/chunking/) — one Chunk shape, per-source-shape boundary logic
   (agenda-item, h2-section, table-row, sentence-grouped transcript, uploaded-doc paragraph)
@@ -38,7 +57,9 @@ FastAPI (app/api/) — /query, /health, /sources/{doc_id}, /documents/upload
 Static web UI (app/api/static/) — ask box, citations, upload form, served by the same app
 ```
 
-One Docker image (`Dockerfile`), role selected by `docker-compose.yml`'s `command:` per service (`api` / `worker`) — not separate builds (DECISIONS #8, #107).
+One Docker image (`Dockerfile`), role selected by `docker-compose.yml`'s `command:` per service (`api` / `worker`) — not separate builds (DECISIONS #8, #107). In production this runs on AWS Fargate (`api` and `worker` as separate always-on services) with Postgres on RDS — see "Running it live" below.
+
+A weekly automated recrawl (every Saturday, DECISIONS #126/#134) keeps the archive current without anyone needing to remember to run it by hand.
 
 ## Why these sources, not others
 
@@ -50,7 +71,7 @@ One Docker image (`Dockerfile`), role selected by `docker-compose.yml`'s `comman
 
 ## Provenance and attribution model
 
-Every chunk in the corpus — crawled, transcribed, or uploaded — carries, at minimum:
+Every chunk in the archive — crawled, transcribed, or uploaded — carries, at minimum:
 
 - **Source URL** — the exact page or MediaPlayer.php URL the content came from (or `upload://<sha256>` for a live upload).
 - **Published/effective date** — the meeting date or the grant's posted date, not just when this system happened to fetch it.
@@ -58,38 +79,34 @@ Every chunk in the corpus — crawled, transcribed, or uploaded — carries, at 
 
 Every citation returned by `/query` resolves to a real row via `GET /sources/{doc_id}`, traceable back through the same fields. This discipline exists because a civic-data tool with wrong or unattributed provenance is actively worse than no tool (`.claude/rules/crawler.md`).
 
-## Real, load-bearing limitation: most City Council meetings can't transcribe yet
+## Full-length City Council meetings: fixed, not a known gap anymore
 
-A live validation run (DECISIONS #116) registered 3 real, recent City Council sessions and attempted transcription for real. All 3 failed identically and correctly: each file is 150–230MB, and `whisper-1` has a hard 25MB single-request limit. At this Granicus instance's real encoding bitrate (~138 kbps, measured from real files, not assumed), that ceiling works out to roughly 25 minutes of audio — a limit nearly every full Council session exceeds. The worker fails loud (a clear stored `failure_reason`, no wasted spend — it aborts on an 8MB size probe before ever calling the paid API) rather than attempting a byte-offset split that could silently corrupt an MP3 frame boundary and produce a plausible-looking but wrong transcript.
+Earlier in this build, every full-length Council meeting (3+ hours, 150-230MB) failed to transcribe outright — the hosted transcription API has a hard 25MB single-request limit, and a real validation run (DECISIONS #116) confirmed this wasn't an edge case, it was nearly every real session. The system now automatically splits long audio into safe-sized pieces at real decoded-audio boundaries (never a raw byte cut of the compressed file, which risks corrupting a word mid-split) before transcribing each piece, then stitches the results back together — with a hard per-piece size check and automatic re-splitting if a piece still comes out too big.
 
-Two shorter real committee meetings (14 minutes each) validated the full successful path instead — transcribed, chunked, embedded, and confirmed queryable with a correct, cited answer (DECISIONS #116, #117).
+This was proven against a real full-length meeting, not a short test clip: a previously-failed 3.24-hour session was reprocessed end to end — split into 7 pieces, transcribed, stitched, chunked, embedded — for a real cost of about $1.17, and a real question about that meeting's actual content returned the correct, cited answer. Full details and the exact numbers: `DECISIONS.md` #130.
 
-**Fixing this for real Council-length audio requires duration-aware chunked transcription** (splitting audio at real frame/silence boundaries — needs an `ffmpeg`/`pydub`-class dependency, a new Docker image dependency, and its own sign-off) — flagged as an open item since DECISIONS #86, confirmed as the actual blocking case (not a rare edge case) by this real validation run. The full 12-month backfill is **not** unblocked until this is resolved.
+The 12-month Granicus backfill is unblocked by this fix.
 
-## Ongoing-operation notes (this is not a one-off demo)
+## Ongoing operations — what's automatic, what still needs a human
 
-- **Crawler maintenance.** Every crawler breaks when its target site's structure changes. `.claude/rules/crawler.md`'s fail-loud rule (raise/log, never a silently-empty result) is the current safety net; a dedicated crawler health view is a named future improvement, not yet built.
-- **Recrawl cadence.** Not yet decided — an open item pending its own `DECISIONS.md` entry once the crawler set has been running long enough to have a real answer.
-- **Recurring cost.** Fargate (API + worker services) and RDS run 24/7 — real, if modest, ongoing cost that doesn't scale to zero the way a serverless target would (a deliberate tradeoff, DECISIONS #1). Whisper transcription across a full 12 months of multi-hour Council audio is likely the single largest real cost line once the size-limit blocker above is resolved — a budget alert should exist on both AWS billing and OpenAI's usage dashboard before that backfill ever runs unattended.
-- **pgvector maintenance.** The HNSW index benefits from periodic maintenance as the corpus grows, especially once a year of transcripts lands.
-- **Upload governance.** `POST /documents/upload` has no authentication yet — a known, deliberate stretch-scope cut, not an oversight. Do not upload actually-sensitive negotiation documents to a publicly reachable deployed instance until that's addressed.
+- **Recrawl:** automatic, weekly, every Saturday 06:00 UTC (DECISIONS #126, #134) — pulls fresh Tier-1/1.5 content without anyone triggering it by hand.
+- **Cost alert:** automatic and live — a $100/month AWS budget alert emails warnings at 50%, 90%, and 100% of actual spend (DECISIONS #133). Change the threshold in `.env` and re-run `infra/register_cost_alerts.sh` if it needs adjusting.
+- **Crawler health:** not automatic. A crawler breaks the moment its target site's layout changes, and it fails loudly (an explicit error, never a silently-empty result — `.claude/rules/crawler.md`) rather than pretending nothing happened, but there's no dashboard yet — checking means looking at the job-status tables directly. A named future improvement, not built.
+- **pgvector maintenance:** the vector search index benefits from periodic maintenance as the archive grows, especially once a full year of transcripts has landed.
+- **Upload access:** `POST /documents/upload` has no login requirement — a known, deliberate shortcut, not an oversight. Don't upload an actually-sensitive negotiation document to the live, publicly-reachable instance until that's addressed.
+- **Secrets hygiene:** if you're the one running commands against `.env` or any file with a live API key/password in it, read `.claude/rules/secrets.md` first — two real key exposures happened during this build from printing a secrets file without shaping the output, and the fix is a habit, not a one-time patch.
 
-## Interview-defense talking points
-
-- **Why a named, finite source list instead of an open-ended crawler?** An unbounded civic-site crawler is an unbounded liability. Naming exact sites and requiring a new `DECISIONS.md` entry to add one more mirrors the same discipline as the grounding contract itself.
-- **Why Tier 1 before PSC or GovTrack?** Verified feasibility first — PSC returned near-empty content, GovTrack returned a confirmed 403. Building against sources already proven to work, before sinking time into a headless-browser or API-terms investigation, is sequencing grounded in evidence, not guesswork.
-- **Walk me through the transcription pipeline.** Granicus MP3 → hosted speech-to-text → transcript, as an async worker: status column, `FOR UPDATE SKIP LOCKED` claiming, stale-row recovery — the same pattern proven in production for exactly the reason multi-hour audio can't transcribe synchronously inside an HTTP request.
-- **How do you keep transcription costs bounded?** A hard 12-month backfill bound enforced in code, a deliberate small-batch validation run before any unattended backfill, and — as that validation run just proved — a real, named blocker (the 25MB size limit) caught with real files and $0 spent, instead of discovered mid-backfill.
-- **How does live upload fit the grounding contract?** Identically to crawled content — same chunk/embed/threshold-retrieval/citation path. The contract doesn't relax for user-supplied text; a live negotiation draft is exactly where a hallucinated or misattributed answer would be actively harmful.
-- **What's the single biggest known gap right now?** Full-length City Council meeting transcription — see the limitation section above. It's understood, dated, and has a named (not yet authorized) fix, rather than being an unknown unknown.
-
-## Running locally
+## Running it locally
 
 ```
 docker-compose up --build
 ```
 
-Brings up Postgres+pgvector, the API (port 8000), and the transcription worker with one command (DECISIONS #107-#109). Static UI served at `http://localhost:8000/`.
+Brings up Postgres+pgvector, the API (port 8000), and the transcription worker with one command. Static UI served at `http://localhost:8000/`.
+
+## Running it live
+
+The production deployment runs on AWS Fargate — an `api` service and a `worker` service, each its own always-on container, talking to a managed Postgres (RDS) database. `infra/DEPLOY_NEXT_STEPS.md` is the operational runbook: how to re-deploy after a code change, how to load newly-crawled content into the live database, and the exact commands for both. The live app's public address changes if a task restarts (it isn't a fixed URL yet — a real future improvement, not a blocker); the runbook explains how to look it up.
 
 ## Stack
 
