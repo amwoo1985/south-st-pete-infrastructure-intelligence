@@ -14,58 +14,94 @@ batch (`.claude/rules/crawler.md`: "validate a small batch before letting
 the full 12-month backfill run unattended"), not a default-on runner.
 
 
-## Stale-claim recovery threshold: worked reasoning
+## Stale-claim recovery threshold: worked reasoning (re-derived — see
+## "decision (c)" below for why the design this math depends on changed)
 
-`STALE_CLAIM_THRESHOLD = timedelta(hours=1)`. Derived, not a round-number
-guess — two independent worst-case estimates, both well under an hour:
+`STALE_CLAIM_THRESHOLD = timedelta(hours=4)`. This supersedes the
+original `timedelta(hours=1)` derivation, which explicitly depended on a
+design that no longer exists: the original math's dominant assumption was
+"the common case fails loud after one bounded ~8 MiB probe fetch... never
+reaches Whisper at all," because `_download_ranged` used to abort the
+instant a file was found to exceed `WHISPER_MAX_FILE_BYTES` (25 MiB).
+Now that oversized files are downloaded in full and split (decision (c)
+below), that assumption is false for the realistic common case — a real
+multi-hour meeting now downloads completely AND makes multiple whisper-1
+calls, not one. Re-derived from scratch, same worked-math rigor:
 
-**A. Worst case under this module's actual built design.** The download
-step (`_download_ranged`) fetches one Range-chunked probe (`RANGE_CHUNK_SIZE_BYTES`
-= 8 MiB) first, reads the real total file size off that response's
-`Content-Range` header, and aborts immediately — before fetching any more
-of the file — if that total exceeds `WHISPER_MAX_FILE_BYTES` (25 MiB, see
-below). Given a real multi-hour St. Petersburg City Council meeting MP3
-is virtually certain to exceed 25 MiB (even a low 64 kbps mono
-spoken-word encoding is ~28.8 MB/hour), the common case fails loud after
-one bounded ~8 MiB fetch (bounded by `BaseCrawler`'s 30s request timeout
-+ up to 2.0s rate-limit wait ≈ well under a minute) and never reaches
-Whisper at all. The only case that reaches a full download + a Whisper
-call is a short/atypical meeting whose file is *already* ≤ 25 MiB — at a
-conservative 128 kbps (16 KB/s), that caps out at ~27 minutes of audio;
-at a leaner 64 kbps mono, ~53 minutes. Call it "up to ~1 hour of audio,
-≤25 MiB file" as the realistic ceiling for a job that actually runs the
-full pipeline.
-  - Download: ≤25 MiB in 8 MiB windows ≈ 4 ranged requests, each bounded
-    at ~60s worst case (30s HTTP timeout + up to 2s rate-limit wait,
-    rounded up for margin) ⇒ ≤ 4 min.
-  - Transcribe: one `audio.transcriptions.create()` call, up to
-    `max_attempts=3` attempts with exponential backoff (trivial — 1s +
-    2s ≈ 3s total sleep). Whisper has no published hard per-request SLA
-    to cite, so each attempt's wall-clock (upload + server processing +
-    response) is bounded generously at 5 minutes ⇒ 3 attempts × 5 min +
-    trivial backoff ≈ 15 min.
-  - Total: ≈ 4 + 15 = **19 minutes** worst case under the actual design.
+**A'. Realistic worst case, grounded in DECISIONS #116's real evidence.**
+Using the exact real byte count of the largest real file seen to date
+(229,683,110 bytes — the Aug 13 2026 City Council session, the largest of
+the 3 real meetings DECISIONS #116 registered), not a rounded "~250 MB"
+placeholder (crawler-review pre-commit finding, LOW — the original
+version of this section rounded up to "250 MB" and then mixed decimal-MB
+and MiB readings between the download-chunk and piece-count steps; using
+one real, exact byte count throughout removes that ambiguity), at
+DECISIONS #116's measured ~137.7 kbps bitrate:
+  - Real duration at this bitrate: 229,683,110 × 8 / 137,700 ≈ 13,343
+    sec ≈ **222 minutes (≈3.7 hours)**.
+  - Download: `RANGE_CHUNK_SIZE_BYTES` = 8,388,608 bytes ⇒ ceil(229,683,110
+    / 8,388,608) = 28 ranged requests. Real transfer time dominates over
+    the rate-limit floor at this chunk size (8 MiB at a conservative 5
+    Mbps ≈ 13s/chunk); generously bounding each chunk (transfer +
+    rate-limit wait + margin) at 30s, matching the original docstring's
+    own pessimistic per-chunk bound ⇒ 28 × 30s ≈ **14 minutes**.
+  - Split (local `pydub`/`ffmpeg` decode + re-export, `app/granicus/
+    audio_split.py`): CPU-bound, no network wait — generously bounded at
+    ≤ the download time itself (14 min). This bound is inherited/asserted
+    reasoning (local audio-codec throughput is essentially always faster
+    than an 8 MiB/30s-chunk-bounded network transfer of the same bytes,
+    ≈2.1 Mbps-equivalent sustained), not independently re-benchmarked
+    against a wall-clock measurement in this environment before this
+    threshold was set (crawler-review pre-commit finding, MEDIUM — flagged
+    honestly rather than presented as measured).
+  - Transcribe: `SPLIT_TARGET_FRACTION = 0.9` against `WHISPER_MAX_FILE_BYTES`
+    (26,214,400 bytes) gives a 23,592,960-byte per-piece target ⇒
+    ceil(229,683,110 / 23,592,960) = **10 pieces**. Realistic per-piece
+    cost uses the ORIGINAL docstring's own single-attempt bound (not full
+    3-attempt retry exhaustion for every piece — see the pessimistic
+    cross-check below for that), itself an inherited, not re-benchmarked,
+    assumption: each attempt's wall-clock is bounded generously at 5
+    minutes ⇒ 10 × 5 min = **50 minutes**.
+  - Total: 14 + 14 + 50 = **78 minutes** realistic worst case for the
+    largest real meeting seen to date.
 
-**B. Pessimistic cross-check, assuming the early-abort-on-first-chunk
-design somehow didn't fire** (defense against my own design being wrong
-in a way I haven't thought of) — download a full 6-hour meeting (a
-plausible upper bound for a St. Pete council meeting with heavy public
-comment) at a conservative 128 kbps ⇒ ~337.5 MB, ~43 chunks at 8 MiB
-each. Real Range-chunked transfer time dominates over the 2.0s rate-limit
-floor at this chunk size (8 MiB at a conservative 5 Mbps ≈ 13s/chunk);
-generously bounding each chunk (transfer + rate-limit wait + margin) at
-30s ⇒ 43 × 30s ≈ **21.5 minutes** to download the *entire* file even in
-this scenario the design is meant to prevent. (No Whisper multi-part
-multiplier applies here — decision (b) below means an oversized file
-never reaches Whisper at all, it fails at the size check.)
+**B'. Pessimistic cross-check — every one of those 10 pieces
+independently exhausts all 3 retry attempts** (the original docstring's
+own full 15-min-per-call bound, applied per piece — a combinatorially
+unlikely scenario, since it requires 10 independent transient failures in
+the same job, but worth bounding explicitly rather than assumed away):
+10 × 15 min = 150 min, plus the same ≈28 min download+split ⇒ **≈178
+minutes (≈3.0 hours)**.
 
-Both estimates land at roughly 20-25 minutes. Setting the threshold at
-**60 minutes** gives ~2.5-3x margin over either worst case: comfortably
-would not reclaim a job still honestly in-flight, but reclaims a job
-whose worker actually died (crashed process, killed container) within an
-hour rather than letting a dead claim block that row indefinitely — short
-enough that a dead worker doesn't stall the (currently small, manually
-registered) queue for a full day.
+**C'. Sanity check against the outer boundary this design still permits**
+(`MAX_TOTAL_DOWNLOAD_BYTES` = 524,288,000 bytes, see decision (c) below) —
+a never-yet-observed 500 MiB file (≈8.46 hr at the real 137.7 kbps rate)
+would need ceil(524,288,000/23,592,960) = 23 pieces: download
+ceil(524,288,000/8,388,608) = 63 chunks × 30s ≈ 32 min, split ≤32 min
+(same bound), transcribe at realistic single-attempt timing 23 × 5 min ≈
+115 min ⇒ **≈179 minutes (≈3.0 hours)** — still under 4 hours even at
+this extreme, never-observed boundary, at realistic (non-retry-exhausted)
+per-piece timing.
+
+Setting the threshold at **4 hours (240 minutes)**: ≈3.1x margin over the
+realistic A' estimate (78 min); ≈35% margin over both B''s
+combinatorial-pessimism cross-check and C''s outer-boundary case (178-179
+min) — real margin, not huge, and honestly reported as such rather than
+oversold (crawler-review pre-commit finding, MEDIUM: an earlier version of
+this section claimed B' was "comfortably" cleared when the underlying
+numbers, before this exact-byte-count correction, gave only ~13% margin).
+This constant's actual job is unchanged from the original derivation —
+reclaiming a genuinely DEAD worker's claim, not bounding the maximum time
+a legitimately-still-working job could ever take. A finite threshold
+always accepts some tradeoff between "too short: reclaims and
+double-processes a job that's still honestly in flight" and "too long: a
+dead worker's claim blocks that row longer before recovery" — 4 hours
+stays on the safe side of that tradeoff for every real and near-worst-case
+scenario derived above, while still being far short of a full day for the
+(small, manually registered) queue this project runs. If the split/
+transcribe timing bounds above are ever found to be wrong once measured
+for real (rather than asserted), this threshold should be re-derived
+against real numbers, not defended past new evidence.
 
 
 ## Range-chunk size: 8 MiB
@@ -78,40 +114,84 @@ chunk trivial regardless of total file size, and comfortably under the
 exceed that limit. `RANGE_CHUNK_SIZE_BYTES = 8 * 1024 * 1024`.
 
 
-## >25 MiB Whisper case: decision (b) — fail loud, no chunked submission
+## >25 MiB Whisper case: decision (c) — duration-aware chunked
+## transcription, superseding decision (b)
 
-Verified against the current OpenAI docs (developers.openai.com/api/docs/guides/speech-to-text,
-fetched this session — platform.openai.com/docs/... 301-redirects there
-now): whisper-1's real limit is "files can be up to 25 MB"; supported
-formats are mp3/mp4/mpeg/mpga/m4a/wav/webm. Checked whether the installed
-`openai==3.3.1` SDK offers a built-in multi-part/chunking helper before
-assuming there wasn't one: `transcriptions.create()` does expose a
-`chunking_strategy` parameter, but per the SDK's own docstring this
-controls *server-side* VAD-based chunking of audio already within one
-request/25 MiB, and is explicitly documented as ignored for `whisper-1`
-("streaming is not supported for the whisper-1 model and will be
-ignored" — chunking_strategy is a streaming-response knob). It does not
-split a >25 MiB file across multiple requests. No SDK-provided out.
+**History, kept rather than deleted, because it's interview-defensible
+context for why this changed.** DECISIONS #86 originally built (b): fail
+loud with a specific `failure_reason` (`AudioTooLargeError`, raised the
+moment the first Range chunk's `Content-Range` total was known to exceed
+`WHISPER_MAX_FILE_BYTES`), not split-and-concatenate — specifically
+because (i) real audio-duration-aware splitting needed a new dependency
+(pydub, wrapping ffmpeg) with real Docker/deploy implications not decided
+that round, and (ii) a raw byte-offset split of an MP3 stream isn't
+frame-safe (MP3 frames aren't fixed-length; a naive cut can corrupt both
+halves). DECISIONS #116 then proved with real data that this wasn't a
+rare edge case: all 3 real St. Petersburg City Council meetings tried
+(150-230 MB, ~137.7 kbps measured) failed identically under (b) — full
+sessions run 1.5-5+ hours, vastly over the ~25-minute ceiling this limit
+implied at real bitrates. Amber explicitly authorized building the
+follow-up (b) had flagged but not built.
 
-Built (b): fail loud with a specific `failure_reason`
-(`AudioTooLargeError`, raised the moment the first Range chunk's
-`Content-Range` total is known to exceed `WHISPER_MAX_FILE_BYTES` — see
-`_download_ranged`), not (a) split-and-concatenate. A byte-offset split
-of an MP3 stream is not guaranteed frame-safe (MP3 frames aren't
-fixed-length; a raw cut can land mid-frame and corrupt both halves).
-Real audio-duration-aware splitting needs an audio-processing dependency
-(pydub, wrapping ffmpeg) — a new system binary in the Docker image with
-real deploy implications squarely outside this module's and this round's
-scope (deploy-infra's territory, not decided). Flagging
-duration-aware chunked transcription as a named future follow-up
-needing its own DECISIONS entry and Amber's sign-off on the ffmpeg/pydub
-dependency, per this round's brief.
+**What changed:** (i) is resolved — `pydub` is now a decided, pinned
+dependency (`requirements.txt`), and `ffmpeg` is added to the Docker
+image (deploy-infra, parallel work this round). (ii) is resolved by
+construction, not worked around: `app/granicus/audio_split.py` never
+touches the compressed byte stream directly — it decodes via
+`pydub.AudioSegment.from_file` (wrapping `ffmpeg`) and slices in the
+*decoded* PCM domain, where cut points are sample-accurate by
+definition, then re-exports each slice as its own independent, valid
+MP3. The frame-safety objection that blocked (b)'s split option never
+applied to decoded-domain slicing — it only ever applied to a raw
+byte-offset cut of the still-compressed file, which this module never
+does. See `audio_split.py`'s own module docstring for the split-sizing
+strategy (initial real-bitrate estimate + per-piece post-export
+byte-size verification with adaptive re-split) in full.
+
+**Verified against the current OpenAI docs** (developers.openai.com/api/docs/guides/speech-to-text,
+fetched DECISIONS #86's session — platform.openai.com/docs/... 301-redirects
+there now, unchanged since): whisper-1's real limit is "files can be up
+to 25 MB"; supported formats are mp3/mp4/mpeg/mpga/m4a/wav/webm.
+`transcriptions.create()`'s `chunking_strategy` parameter remains
+*server-side* VAD chunking within one request/25 MiB, explicitly
+documented as ignored for `whisper-1` — still no SDK-provided
+multi-request chunking helper, confirming this module's manual
+per-piece-call approach (loop calling the existing `_transcribe_audio()`
+once per split piece, `_transcribe_possibly_split` below) is still the
+only real option.
 
 `WHISPER_MAX_FILE_BYTES = 25 * 1024 * 1024` (26,214,400 bytes — the MiB
 reading of "25 MB", the commonly-reported actually-enforced byte ceiling;
 I could not verify the exact byte-for-byte enforcement point against a
 live API call in this environment, so this is the conservative
-interpretation, not a confirmed-exact one).
+interpretation, not a confirmed-exact one). This is now the per-piece
+ceiling (unchanged in value), not the whole-download abort ceiling — see
+`MAX_TOTAL_DOWNLOAD_BYTES` below for the new, larger, explicit outer
+sanity bound on what this worker will ever attempt to download and split
+in one job.
+
+**`MAX_TOTAL_DOWNLOAD_BYTES = 500 * 1024 * 1024` (500 MiB =
+524,288,000 bytes) — explicit outer ceiling, still fail loud above it.**
+The brief for this round explicitly asked whether there's a sane upper
+bound above which this worker should still fail loud rather than attempt
+an enormous number of whisper-1 calls. DECISIONS #116's real evidence
+caps out at 229,683,110 bytes / ~3.7 hours for the largest actual St.
+Pete City Council session seen to date (exact real byte count, not a
+rounded estimate — see the stale-claim threshold's re-derivation above
+for the same figure used consistently) — 524,288,000 bytes is ~2.3x that
+real observed maximum (~8.46 hours of audio at the real 137.7 kbps rate),
+comfortably covering any real meeting this project has ever actually seen
+with margin, while still catching a genuine outlier
+(a mis-registered non-audio file, a wrong URL, an accidentally
+multi-day recording) before this worker would attempt an unbounded
+number of Whisper calls against it. `_download_ranged` keeps its
+existing early-abort behavior (probe the first Range chunk's
+`Content-Range` total, abort immediately if it exceeds this ceiling,
+never download further) — unchanged mechanism, just a larger, explicitly
+documented threshold. `AudioTooLargeError` is still the exception raised
+for this case; its meaning shifted from "over Whisper's own limit" (no
+longer directly downloader-enforced — that's now `audio_split.py`'s job)
+to "over this project's own sane processing ceiling."
 
 **Whisper per-minute price** (verified live this session via OpenAI's
 current pricing docs at developers.openai.com/api/docs/pricing, the
@@ -174,15 +254,20 @@ import psycopg
 import requests
 
 from app.crawlers.base import BaseCrawler, CrawlerStructureError
+from app.granicus.audio_split import AudioSplitResult, split_audio_for_whisper
 
 logger = logging.getLogger("granicus.worker")
 
 # --- Tunable constants (see module docstring for the worked reasoning) ----
 
-STALE_CLAIM_THRESHOLD = timedelta(hours=1)
+STALE_CLAIM_THRESHOLD = timedelta(hours=4)
 RANGE_CHUNK_SIZE_BYTES = 8 * 1024 * 1024  # 8 MiB
 WHISPER_MODEL = "whisper-1"
-WHISPER_MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MiB ("25 MB" per OpenAI docs)
+WHISPER_MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MiB ("25 MB" per OpenAI docs) — the
+# per-piece ceiling `audio_split.py` splits against, not the whole-download ceiling.
+MAX_TOTAL_DOWNLOAD_BYTES = 500 * 1024 * 1024  # 500 MiB — outer sanity ceiling, see
+# module docstring's "decision (c)" section for the worked reasoning.
+WHISPER_COST_PER_MINUTE_USD = 0.006  # verified live, module docstring above.
 
 # archive-video.granicus.com's CDN bot-filters requests without a
 # browser-like User-Agent + Referer (.claude/rules/crawler.md, confirmed
@@ -247,9 +332,22 @@ _TRANSCRIBE_RETRYABLE_EXCEPTIONS = (
 
 
 class AudioTooLargeError(Exception):
-    """Raised when the audio file exceeds whisper-1's single-request 25
-    MiB limit. See module docstring, "decision (b)" — fails loud instead
-    of splitting."""
+    """Raised when a downloaded audio file exceeds this project's outer
+    sanity ceiling (`MAX_TOTAL_DOWNLOAD_BYTES`) — fails loud instead of
+    attempting to download/split/transcribe a genuine outlier. See module
+    docstring, "decision (c)". (Prior to decision (c), this was also
+    raised for anything over whisper-1's own 25 MiB per-request limit;
+    that case is now handled by splitting, not failing — see
+    `_transcribe_possibly_split` / `app/granicus/audio_split.py`.)"""
+
+
+class PieceTranscriptionError(Exception):
+    """Raised when one split piece's transcription ultimately fails (after
+    `_transcribe_audio`'s own retry/classification is exhausted) — names
+    which piece and why, so a stitched-multi-piece job's failure_reason
+    never silently drops which segment broke
+    (`.claude/rules/crawler.md`'s fail-loud rule, applied to a partial-job
+    failure exactly as much as a whole-job one)."""
 
 
 class TranscriptionValidationError(ValueError):
@@ -433,7 +531,7 @@ def _download_ranged(
     dest_path: Path,
     *,
     chunk_size: int = RANGE_CHUNK_SIZE_BYTES,
-    max_bytes: int = WHISPER_MAX_FILE_BYTES,
+    max_bytes: int = MAX_TOTAL_DOWNLOAD_BYTES,
     max_attempts: int = 3,
     base_backoff_seconds: float = 1.0,
 ) -> int:
@@ -453,13 +551,14 @@ def _download_ranged(
     Reads the real total file size off the *first* response's
     `Content-Range` header and raises `AudioTooLargeError` immediately —
     before fetching any further chunks — if that total exceeds
-    `max_bytes`. This is a deliberate design choice beyond what was
-    strictly asked ("pre-flight check before calling the [Whisper] API"):
-    since a real multi-hour meeting is virtually certain to be
-    oversized, this bounds the wasted work to one ~8 MiB probe request
-    instead of downloading a multi-GB file that's already known to be
-    doomed to fail the size check. See module docstring's stale-claim
-    threshold math, which relies on this early-abort behavior.
+    `max_bytes` (defaults to `MAX_TOTAL_DOWNLOAD_BYTES`, the project's
+    outer sanity ceiling — see module docstring's "decision (c)", NOT
+    `WHISPER_MAX_FILE_BYTES`; a file over Whisper's own per-request limit
+    but under this outer ceiling is downloaded in full and split
+    afterward by `app/granicus/audio_split.py`, not aborted here). This
+    bounds the wasted work on a genuine outlier (a mis-registered
+    non-audio file, a wrong URL) to one probe request instead of
+    downloading a multi-GB file that's already known to be doomed.
 
     Raises `CrawlerStructureError` (fail loud, never silently truncate)
     if a ranged response isn't actually 206, is missing `Content-Range`,
@@ -512,12 +611,12 @@ def _download_ranged(
                 total = chunk_total
                 if total > max_bytes:
                     raise AudioTooLargeError(
-                        f"{mp3_url} is {total:,} bytes, over whisper-1's "
-                        f"{max_bytes:,}-byte single-request limit — aborted "
+                        f"{mp3_url} is {total:,} bytes, over this project's "
+                        f"{max_bytes:,}-byte outer sanity ceiling — aborted "
                         f"after the first {chunk_size:,}-byte probe chunk "
-                        "rather than downloading the full file "
-                        "(no multi-part transcription built this round, see "
-                        "app/granicus/worker.py module docstring)"
+                        "rather than downloading the full file (see "
+                        "MAX_TOTAL_DOWNLOAD_BYTES, app/granicus/worker.py "
+                        "module docstring's 'decision (c)' section)"
                     )
             elif chunk_total != total:
                 raise CrawlerStructureError(
@@ -623,6 +722,105 @@ def _validate_transcription(response) -> str:
     return text
 
 
+# --- Transcription, split-aware (decision (c), see module docstring) --------
+
+# Stitch separator between split-piece transcript texts — a plain space,
+# matching app/chunking/granicus_transcript.py's own `_PIECE_JOIN`
+# convention for joining sentence groups back into chunk text. Confirmed
+# compatible with that module before choosing this: its chunker only ever
+# splits `transcript_text` at sentence-boundary punctuation
+# (`_SENTENCE_SPLIT`), never assumes anything about piece boundaries, and
+# already has a documented, accepted "LOW" precedent for a chunk boundary
+# landing exactly at a piece-adjacent seam (its own "St. Petersburg"
+# mid-name split note) — a plain space join introduces nothing new for
+# that downstream chunker to handle.
+_PIECE_STITCH_SEPARATOR = " "
+
+
+def _transcribe_possibly_split(
+    openai_client: openai.OpenAI,
+    audio_path: Path,
+    job: ClaimedJob,
+    tmp_dir: Path,
+) -> str:
+    """Transcribes `audio_path`, splitting first if it exceeds
+    `WHISPER_MAX_FILE_BYTES` (decision (c) — see module docstring).
+
+    The single-piece path (the common case for most real meetings to
+    date, DECISIONS #116) is completely unchanged: one `_transcribe_audio`
+    call, no split module invoked at all.
+
+    For an oversized file: splits via `audio_split.split_audio_for_whisper`,
+    logs the real estimated cost (`.claude/rules/crawler.md`: multiple
+    whisper-1 calls for one job is materially bigger spend than the
+    single-call case this worker was originally built for) at WARNING
+    before making any of the per-piece calls, then calls the existing
+    `_transcribe_audio()` once per piece — preserving its existing
+    retry/failure-classification shape unchanged.
+
+    A systemic OpenAI auth/permission failure
+    (`openai.AuthenticationError`/`PermissionDeniedError`) on ANY piece
+    propagates immediately, unwrapped — `process_one_job`'s existing
+    systemic-vs-per-job handling (below) already special-cases this exact
+    exception type for the whole job, and that's the correct behavior
+    here too: a broken credential isn't specific to one piece or one job.
+
+    Any OTHER piece failure is wrapped in `PieceTranscriptionError` naming
+    which piece (`N/total`) failed and why, then raised — the whole job
+    fails loud (never a stitched result silently missing one segment's
+    text), landing in `process_one_job`'s existing generic per-job
+    `except Exception` handler with a `failure_reason` that already names
+    the failing piece.
+
+    Split-piece temp files are best-effort cleaned up in a `finally`
+    (`.claude/rules/data.md`) regardless of outcome — these are in
+    addition to `process_one_job`'s own `audio_path` cleanup, which
+    covers only the original downloaded file, not these derived pieces.
+    """
+    size = audio_path.stat().st_size
+    if size <= WHISPER_MAX_FILE_BYTES:
+        return _transcribe_audio(openai_client, audio_path)
+
+    split_result: AudioSplitResult = split_audio_for_whisper(
+        audio_path, tmp_dir, max_piece_bytes=WHISPER_MAX_FILE_BYTES
+    )
+    piece_count = len(split_result.pieces)
+    estimated_cost_usd = (split_result.total_duration_seconds / 60) * WHISPER_COST_PER_MINUTE_USD
+    logger.warning(
+        "%r (%s): audio is %d bytes (~%.1f min), over whisper-1's %d-byte "
+        "single-request limit — split into %d piece(s), about to make %d "
+        "separate whisper-1 calls, estimated real cost ~$%.2f at $%.3f/min",
+        job.meeting_title,
+        job.mp3_url,
+        size,
+        split_result.total_duration_seconds / 60,
+        WHISPER_MAX_FILE_BYTES,
+        piece_count,
+        piece_count,
+        estimated_cost_usd,
+        WHISPER_COST_PER_MINUTE_USD,
+    )
+
+    texts: list[str] = []
+    try:
+        for piece in split_result.pieces:
+            try:
+                piece_text = _transcribe_audio(openai_client, piece.path)
+            except (openai.AuthenticationError, openai.PermissionDeniedError):
+                raise
+            except Exception as exc:  # noqa: BLE001 - re-wrapped with piece context, never swallowed
+                raise PieceTranscriptionError(
+                    f"piece {piece.index}/{piece_count} ({piece.path.name}) of "
+                    f"{job.mp3_url!r} failed ({type(exc).__name__}): {exc}"
+                ) from exc
+            texts.append(piece_text)
+    finally:
+        for piece in split_result.pieces:
+            piece.path.unlink(missing_ok=True)
+
+    return _PIECE_STITCH_SEPARATOR.join(texts)
+
+
 # --- Storing the result -------------------------------------------------------
 
 
@@ -686,12 +884,17 @@ def process_one_job(
     *,
     tmp_dir: Path | None = None,
 ) -> ProcessResult | None:
-    """Claims one pending job, downloads its audio, transcribes it, and
-    stores the result — end to end. Returns None if nothing was pending
-    (a clean, expected no-op, not an error). Returns a ProcessResult with
-    a terminal status ('completed' or 'failed') for every ordinary
-    per-job outcome. The one exception: a systemic OpenAI auth/permission
-    failure (`openai.AuthenticationError`/`PermissionDeniedError`) is NOT
+    """Claims one pending job, downloads its audio, transcribes it (via
+    `_transcribe_possibly_split` — splitting first if the file exceeds
+    whisper-1's 25 MiB per-request limit, decision (c) in the module
+    docstring), and stores the result — end to end. Returns None if
+    nothing was pending (a clean, expected no-op, not an error). Returns a
+    ProcessResult with a terminal status ('completed' or 'failed') for
+    every ordinary per-job outcome — including a `PieceTranscriptionError`
+    from a single split piece's failure, which lands in the generic
+    per-job `except Exception` branch below with a `failure_reason`
+    naming which piece failed and why. The one exception: a systemic
+    OpenAI auth/permission failure (`openai.AuthenticationError`/`PermissionDeniedError`) is NOT
     turned into a ProcessResult — the job is reverted to 'pending' (see
     `_revert_to_pending`) and the exception is re-raised, so a caller
     looping over multiple jobs (`process_pending_jobs`) aborts instead of
@@ -726,7 +929,7 @@ def process_one_job(
             return ProcessResult(mp3_url=job.mp3_url, status="failed", failure_reason=reason)
 
         try:
-            transcript_text = _transcribe_audio(openai_client, audio_path)
+            transcript_text = _transcribe_possibly_split(openai_client, audio_path, job, tmp_dir)
         except AudioTooLargeError as exc:
             reason = str(exc)
             _mark_failed(conn, job.mp3_url, reason)

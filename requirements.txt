@@ -32,6 +32,16 @@ httpx2==2.12.0
 psycopg[binary]==3.2.10
 pgvector==0.5.0
 
+# Duration-aware Whisper audio splitting (Phase C follow-up, DECISIONS #86 ->
+# real follow-up authorized 2026-08-23 — see app/granicus/audio_split.py).
+# Wraps the `ffmpeg` binary (added to the Docker image by deploy-infra,
+# parallel work this round; NOT installed in this Windows dev shell, so
+# real split/decode is only exercised via the local docker-compose stack,
+# not this machine's .venv directly). Pinned to what actually resolves in
+# .venv — 0.25.1 is also pydub's latest published release, no newer
+# version exists to prefer over it.
+pydub==0.25.1
+
 # FastAPI layer, Phase H — pinned to what's verified installed and working
 # in .venv this round (`pip install fastapi "uvicorn[standard]"
 # python-multipart python-docx`, no upper bounds forced, this is just what
