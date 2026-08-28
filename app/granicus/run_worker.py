@@ -72,6 +72,57 @@ flight" (which can't be helped either way — see below) rather than by
 "one more job PLUS however many more the batch would have grabbed."
 
 
+## Stale-claim recovery: worked reasoning (DECISIONS #142)
+
+`worker.py` built and tested `recover_stale_claims`/`STALE_CLAIM_THRESHOLD`
+(`tests/granicus/test_worker.py`) but, until now, no production code path
+ever actually called it in this loop — `scripts/run_granicus_worker_once.py`
+(a separate, not-yet-live scheduled-task entrypoint, DECISIONS #139) called
+it correctly, but this always-on service's own loop did not. Real
+consequence: DECISIONS #137/#138's two OOM crashes left rows stuck in
+`status='claimed'` forever, only cleared by a manual `SELECT`/`UPDATE`, not
+by the system healing itself.
+
+Fixed by calling `recover_stale_claims(conn)` at the start of every cycle,
+before claiming new work — same ordering `run_granicus_worker_once.py`
+already uses.
+
+**Cadence: every cycle (every `POLL_INTERVAL_SECONDS` = 30s), not a lighter
+N-cycle cadence like the heartbeat-log pattern above.** `STALE_CLAIM_THRESHOLD`
+(4 hours) is the actual throttle on how often a row can even *become*
+eligible for reclaim — running the check more often than that doesn't cause
+more reclaims, just more cheap no-op scans. And the scan itself is cheap by
+the same argument this module's own "Poll interval" section already makes
+for `claim_next_job`: a single bounded `UPDATE ... WHERE status='claimed'
+AND claimed_at < now() - threshold` against a table that tops out around
+~52 rows/year — `status` is indexed (`schema.py`'s
+`granicus_jobs_status_idx`), narrowing to the small `'claimed'` subset
+before `claimed_at` (not itself indexed) is filtered on that subset — not a
+measurable cost added to a loop that already does a comparable-cost query
+every cycle regardless. Rejected: gating this behind its own N-cycle counter
+(mirroring `_HEARTBEAT_EVERY_N_EMPTY_CYCLES`) — that pattern exists there to
+throttle *log volume*, a real cost (spam); it does not apply here, where the
+thing being throttled would be a query that's already cheap and where the
+actual failure mode this exists to fix (a row silently stuck for hours after
+a crash) is made *worse*, not better, by any added delay. Simpler code,
+faster real recovery, no measurable cost — no tradeoff to weigh either way.
+
+Same fail-loud, non-fatal-to-the-process discipline as `process_pending_jobs`
+below, but with its own INNER `try`/`except` around just the
+`recover_stale_claims(conn)` call (crawler-review pre-commit finding, this
+round: HIGH — folding it into the same try as `process_pending_jobs` meant a
+*persistently* failing recovery scan would propagate past
+`process_pending_jobs` every single cycle, never letting it run at all —
+trading "a row stuck in 'claimed' until a human notices" for "no job ever
+gets processed until a human notices," a different-shaped version of the
+same bug this fix exists to close, not an actual fix). A recovery failure is
+logged loud (`logger.exception`, full detail) and marks the cycle
+`cycle_errored` for the heartbeat below, but processing still proceeds to
+`process_pending_jobs` in the same cycle regardless — a broken recovery scan
+degrades to "stale claims stop getting reclaimed until recovery starts
+working again," never to "the worker stops doing its primary job."
+
+
 ## Shutdown handling
 
 SIGTERM (Docker's `docker-compose down` signal) and SIGINT (local Ctrl+C)
@@ -84,9 +135,10 @@ cancellation point inside `_download_ranged`/`_transcribe_audio`, and
 adding one is out of scope for this file (worker.py is another round's
 concern per the brief, touched here not at all). A job caught mid-flight
 when the container is killed is exactly what `recover_stale_claims`
-(worker.py) and `STALE_CLAIM_THRESHOLD` already exist to reclaim; this
-loop's job is only to stop claiming *new* work promptly, which the
-per-job checkpoint above achieves.
+(worker.py) — now actually called every cycle by this loop, see above —
+and `STALE_CLAIM_THRESHOLD` exist to reclaim; this loop's job is only to
+stop claiming *new* work promptly, which the per-job checkpoint above
+achieves.
 
 
 ## Fail-loud / per-cycle error handling
@@ -134,7 +186,7 @@ import openai
 from app.crawlers.base import BaseCrawler
 from app.db.connection import get_connection
 from app.granicus.schema import apply_granicus_schema
-from app.granicus.worker import process_pending_jobs
+from app.granicus.worker import process_pending_jobs, recover_stale_claims
 
 logger = logging.getLogger("granicus.run_worker")
 
@@ -188,6 +240,25 @@ def run_forever(openai_client: openai.OpenAI, crawler: BaseCrawler) -> None:
             # `restart:` policy) — contradicting this loop's own "no
             # exception type is fatal" contract.
             conn = get_connection()
+            # Stale-claim recovery, every cycle, before claiming new work —
+            # see module docstring's "Stale-claim recovery" section
+            # (DECISIONS #142) for the cadence reasoning. Deliberately its
+            # OWN inner try/except, not folded into the outer one: a
+            # persistently failing recovery scan must not permanently
+            # starve process_pending_jobs below of ever running again (that
+            # would trade "a row stuck in 'claimed' until a human notices"
+            # for "no job gets processed at all until a human notices" —
+            # not a fix, a different-shaped version of the same bug).
+            # cycle_errored still records it for the heartbeat below.
+            try:
+                recover_stale_claims(conn)
+            except Exception:  # noqa: BLE001 - fail loud, don't starve processing
+                logger.exception(
+                    "stale-claim recovery failed this cycle; continuing to "
+                    "process_pending_jobs anyway rather than let a broken "
+                    "recovery scan block real job processing indefinitely"
+                )
+                cycle_errored = True
             results = process_pending_jobs(
                 conn, openai_client, crawler, max_jobs=JOBS_PER_CYCLE
             )
