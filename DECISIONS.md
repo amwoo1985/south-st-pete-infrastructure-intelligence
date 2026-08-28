@@ -1628,3 +1628,10 @@ Fixed: `infra/api-taskdef.template.json` gained an `UPLOAD_API_KEY` env entry (`
 
 Why: this is the first time any of #143/#144/#147's real-world behavior was confirmed against the actual thing Amber or a successor would hit, rather than against a local stack or a one-off task — matching this project's own standing "REAL-verified, not assumed" discipline (#104/#125/#130/#137/#138/#142/#143/#146/#147). The `UPLOAD_API_KEY` gap this round found and closed is exactly the kind of drift this discipline exists to catch: code-reviewed and locally-verified weeks ago, silently absent from the one artifact (the live task definition) that actually determines what runs in production.
 Date: 2026-08-28
+
+## #149 — #148's real test upload cleaned out of the live queryable corpus
+
+Decision: #144's live upload-auth verification (successful-auth positive case, run as part of #148's redeploy) left a real test document — `original_filename='test.txt'`, contents "test upload content" — fully processed (`status='completed'`, 1 chunk) in live production `document_uploads`/`chunks`. No delete endpoint exists yet, so removed directly: `DELETE FROM chunks WHERE chunk_id = '4449e58015f98abae231de1d7f150f6a'` and `DELETE FROM document_uploads WHERE file_hash = 'd510dd7...'` — both scoped to the exact known row, not a broader condition, per `.claude/rules/data.md`. Confirmed deleted (both statements' `RETURNING` clauses showed the expected row before commit).
+
+Why: a fake test chunk sitting in the same corpus Amber queries for real CBA negotiation questions is a real, if small, correctness risk — this project's core promise is answers traced to real sources, and a synthetic "test upload content" document, however unlikely to get retrieved for a real question, doesn't belong there. Cheap and unambiguous to remove immediately rather than leave as a known, deferred cleanup item.
+Date: 2026-08-28
