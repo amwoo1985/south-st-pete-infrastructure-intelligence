@@ -315,6 +315,37 @@ NOT_IN_CORPUS_ANSWER = (
     "chunk was relevant enough to answer this question."
 )
 
+# DECISIONS #143 (third pass, real evidence): pulled out to its own named
+# constant (was inline) after a real live rerun showed a real failure mode
+# in the ORIGINAL inline wording — given a corrective message that offered
+# "or set not_in_corpus" as an option right next to naming the rejected
+# chunk_id, the model took that exit on the very next attempt instead of
+# checking the OTHER 9-10 still-uncited chunks in REFERENCE MATERIAL for
+# the real answer, even though it was genuinely present there. Reworded to
+# explicitly instruct re-checking every other chunk before conceding
+# not_in_corpus, and to explain WHY the rejection happened (not just that
+# it did) using the model's own actual rejection reasons. Not_in_corpus
+# remains a real, intended out for a genuinely one-chunk-of-context
+# situation where nothing else could possibly hold the answer — it should
+# not be the reflexive first response to a single rejected guess.
+GROUNDING_CORRECTION_MESSAGE_TEMPLATE = (
+    "Your previous response's citation(s) were rejected and could not be "
+    "used:\n"
+    "{rejection_lines}\n\n"
+    "A rejected chunk_id was either not a real chunk_id from REFERENCE "
+    "MATERIAL, or its own text did not actually state the specific fact "
+    "you attached it to.\n\n"
+    "Before answering again: go back through EVERY chunk in REFERENCE "
+    "MATERIAL above, one at a time, not just the one(s) you already tried. "
+    "REFERENCE MATERIAL usually contains several chunks — the fact may be "
+    "stated in a different chunk than the one(s) already rejected. Cite a "
+    "chunk_id only if that specific chunk's own text actually states the "
+    "fact; do not repeat a rejected chunk_id. Only set \"not_in_corpus\" "
+    "to true if, after checking every chunk, none of them actually state "
+    "the fact — not merely because your first guess was wrong. Respond "
+    "again with ONLY the same JSON object shape."
+)
+
 # Static, hardcoded, never interpolated with request data — see module
 # docstring's first bullet. Every fixed value referenced inside it (the
 # JSON shape, the section labels QUESTION:/REFERENCE MATERIAL:) is a
@@ -548,17 +579,8 @@ def generate_answer(
                 {"role": "assistant", "content": response.choices[0].message.content},
                 {
                     "role": "user",
-                    "content": (
-                        "Your previous response's citation(s) were rejected "
-                        "and could not be used:\n"
-                        f"{rejection_lines}\n\n"
-                        "Re-examine REFERENCE MATERIAL above. Cite a "
-                        "chunk_id only if that specific chunk's own text "
-                        "actually states the fact — do not repeat a "
-                        "rejected chunk_id. If no chunk's text actually "
-                        "supports the claim, set \"not_in_corpus\" to true "
-                        "instead. Respond again with ONLY the same JSON "
-                        "object shape."
+                    "content": GROUNDING_CORRECTION_MESSAGE_TEMPLATE.format(
+                        rejection_lines=rejection_lines
                     ),
                 },
             ]

@@ -321,6 +321,40 @@ def test_content_unsupported_citation_is_dropped_and_retried_then_succeeds():
     assert messages[2]["role"] == "assistant"
     assert messages[3]["role"] == "user"
     assert "chunk-unrelated" in messages[3]["content"]
+    # DECISIONS #143 (third pass): the corrective message must explicitly
+    # instruct checking every OTHER chunk, not just re-guess or bail to
+    # not_in_corpus -- a real live rerun of the first wording found the
+    # model taking the not_in_corpus exit after exactly one rejection
+    # without checking the other ~10 still-uncited chunks that actually
+    # held the answer.
+    assert "every chunk" in messages[3]["content"].lower()
+
+
+def test_not_in_corpus_on_a_corrective_retry_is_still_accepted():
+    # The not_in_corpus escape hatch must still work when the model
+    # genuinely means it (a real off-topic query with nothing citable) --
+    # the reworded corrective message pushes the model to check every
+    # chunk first, but must not make not_in_corpus unreachable.
+    chunk_bad = _chunk("chunk-unrelated", text="For South St. Pete CRA")
+    first_payload = {
+        "answer": "The answer is X.",
+        "citations": ["chunk-unrelated"],
+        "not_in_corpus": False,
+    }
+    second_payload = {
+        "answer": "The retrieved material doesn't address this question.",
+        "citations": [],
+        "not_in_corpus": True,
+    }
+    client = _fake_client(
+        side_effect=[_fake_response(first_payload), _fake_response(second_payload)]
+    )
+
+    result = generate_answer(client, "query", [chunk_bad])
+
+    assert result.not_in_corpus is True
+    assert result.citations == ()
+    assert client.chat.completions.create.call_count == 2
 
 
 def test_content_unsupported_citation_exhausts_grounding_retries_and_raises():
