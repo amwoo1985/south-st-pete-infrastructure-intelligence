@@ -49,6 +49,8 @@ This IP is per-task and ephemeral — `assignPublicIp=ENABLED` gives the running
 
 Task defs registered, security group created, both ECS services live, RDS master password rotated, and the real corpus (342 Tier-1 chunks + 13 Granicus chunks) loaded into RDS — `/query` returns real grounded, cited answers against the live public IP. This runbook is kept for reference (re-deploys after an app-code change reuse steps 1/3/4; the old `pgvector-check`/password-rotation content below is historical).
 
+**Redeploy note (DECISIONS #148):** since #144, `register_app_taskdefs.sh` hard-requires a real (non-placeholder) `UPLOAD_API_KEY` in `.env` — step 1 will refuse to run without it. `south-st-pete-api` was redeployed to current HEAD and real-verified (`/health/crawlers`, upload-auth 401/202, #143's citation fix) as of #148 — see that entry for the live evidence and for a disclosed side effect (a test document uploaded during verification that's still sitting in the live corpus, not yet cleaned up).
+
 To load newly-crawled or newly-transcribed content into RDS in the future (DECISIONS #124/#125):
 
 ```
