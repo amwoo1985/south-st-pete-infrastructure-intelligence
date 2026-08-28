@@ -48,13 +48,20 @@ label {
 }
 
 textarea,
-input[type="file"] {
+input[type="file"],
+input[type="password"] {
   width: 100%;
   font-family: inherit;
   font-size: 1rem;
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0.35rem 0 0.75rem;
 }
 
 button {

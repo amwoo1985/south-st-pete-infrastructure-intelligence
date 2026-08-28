@@ -27,7 +27,11 @@ def _raise(exc: Exception):
 @pytest.mark.parametrize(
     "exc, expected_status",
     [
-        (UngroundedAnswerError("no valid citations"), 502),
+        # UngroundedAnswerError is intentionally NOT in this list — see
+        # test_ungrounded_answer_error_returns_clean_not_in_corpus_response
+        # below. It's a distinct outcome (200 + a specific body shape),
+        # not just another status code, so it doesn't fit this generic
+        # "exception -> status" table.
         (GenerationValidationError("bad JSON from model"), 502),
         (EmbeddingValidationError("malformed embedding shape"), 502),
         (EmbeddingInputTooLargeError("question too long"), 400),
@@ -61,6 +65,37 @@ def test_query_exception_maps_to_expected_status(client, monkeypatch, exc, expec
     # Never leak the raw internal exception message into the response body
     # — every mapped detail is a static string, distinct from str(exc).
     assert str(exc) not in body["detail"]
+
+
+def test_ungrounded_answer_error_returns_clean_not_in_corpus_response(client, monkeypatch):
+    # DECISIONS #144: exhausting the bounded corrective retry
+    # (DECISIONS #143) used to map to a 502. It now returns
+    # not_in_corpus=True instead, per .claude/rules/rag.md ("the response
+    # says so explicitly"), not an error page — but with app.api.query's
+    # OWN distinct wording (api-review pre-commit finding: this is a
+    # different situation from generate_answer()'s NOT_IN_CORPUS_ANSWER,
+    # which means retrieve() found zero candidates at all; this path
+    # means candidates WERE found but no citation could be trusted, and
+    # byte-identical text would hide that distinction from anyone reading
+    # the response, Amber included).
+    from app.api.query import _UNGROUNDED_ANSWER
+    from app.rag.generation import NOT_IN_CORPUS_ANSWER
+
+    monkeypatch.setattr(
+        "app.api.query.answer_query",
+        _raise(UngroundedAnswerError("no valid citations survived after retry")),
+    )
+    resp = client.post("/query", json={"question": "What is the CBA?"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["not_in_corpus"] is True
+    assert body["citations"] == []
+    assert body["answer"] == _UNGROUNDED_ANSWER
+    assert body["answer"] != NOT_IN_CORPUS_ANSWER
+    # Same "never leak the raw exception" discipline as every other
+    # mapped exception in this module, even though this path isn't an
+    # HTTPException.
+    assert "no valid citations survived after retry" not in resp.text
 
 
 def test_query_exception_detail_is_generic_not_raw_exception_text(client, monkeypatch):

@@ -157,8 +157,17 @@ queryForm.addEventListener("submit", async (event) => {
 
 const uploadForm = document.getElementById("upload-form");
 const uploadFileInput = document.getElementById("upload-file");
+const uploadApiKeyInput = document.getElementById("upload-api-key");
 const uploadSubmitBtn = document.getElementById("upload-submit");
 const uploadStatusEl = document.getElementById("upload-status");
+
+// DECISIONS #144: POST /documents/upload now requires the X-Upload-Api-Key
+// header. Persisted to localStorage (this browser only, never sent
+// anywhere but this page's own upload request below) purely so a repeat
+// uploader doesn't have to re-paste the key on every visit — this is a
+// solo-operator/small-coalition tool, not a shared multi-user page.
+const UPLOAD_API_KEY_STORAGE_KEY = "uploadApiKey";
+uploadApiKeyInput.value = window.localStorage.getItem(UPLOAD_API_KEY_STORAGE_KEY) || "";
 
 function renderUploadStatus(body, isError) {
   uploadStatusEl.textContent = "";
@@ -205,12 +214,16 @@ uploadForm.addEventListener("submit", async (event) => {
   uploadStatusEl.textContent = "Uploading…";
   show(uploadStatusEl);
 
+  const uploadApiKey = uploadApiKeyInput.value;
+  window.localStorage.setItem(UPLOAD_API_KEY_STORAGE_KEY, uploadApiKey);
+
   const formData = new FormData();
   formData.append("file", file);
 
   try {
     const response = await fetch("/documents/upload", {
       method: "POST",
+      headers: { "X-Upload-Api-Key": uploadApiKey },
       body: formData,
     });
 
