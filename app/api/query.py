@@ -2,9 +2,11 @@
 job is the exception -> HTTP status mapping below: every typed exception
 answer_query()/retrieve()/generate_answer() can raise gets a deliberate,
 distinct status code, never folded into a bare 500 (see each except
-clause's comment for the reasoning). Internal exception text/API details
-are never put in a response body — every HTTPException detail below is a
-static string; the real exception is only ever logged server-side.
+clause's comment for the reasoning) — with ONE deliberate exception to
+"every exception maps to an HTTPException", see UngroundedAnswerError
+below. Internal exception text/API details are never put in a response
+body — every HTTPException detail below is a static string; the real
+exception is only ever logged server-side.
 
 Ordering note: UngroundedAnswerError is caught BEFORE its parent class
 GenerationValidationError (Python matches the first applicable except
@@ -16,6 +18,40 @@ doesn't affect correctness — they're ordered instead by response-code
 severity for readability. The openai.OpenAIError catch-all must come
 after openai.RateLimitError/APITimeoutError/APIConnectionError, since
 those are all its subclasses.
+
+UngroundedAnswerError -> clean QueryResponse, NOT 502 (DECISIONS #144):
+this used to map to HTTP 502 like every other upstream-contract
+violation. DECISIONS #143 (rag-pipeline) reworded the corrective-retry
+prompt to push harder against a premature not_in_corpus concession,
+which changed what exhaustion of that retry can mean — it's no longer
+only "something is broken," it can now also mean "genuinely tried hard
+and still couldn't produce a citation the code trusts." A 502 also
+implicitly invites "try again," which is not an honest suggestion here —
+generation runs at GENERATION_TEMPERATURE=0 and DECISIONS #143 reproduced
+this exact failure mode as deterministic for a fixed query, so retrying
+would reproduce the same outcome. `.claude/rules/rag.md` is explicit that
+an unanswerable question gets a response that "says so explicitly," not
+an error page — so this returns `not_in_corpus=True`, not an
+HTTPException.
+
+Deliberately NOT the same text as `generate_answer()`'s own
+NOT_IN_CORPUS_ANSWER (api-review pre-commit finding, this round): that
+string means retrieve() found NOTHING above the relevance threshold —
+zero candidate chunks. This path is different — retrieve() DID find
+candidates, the model just couldn't produce a citation the code trusts
+after a real corrective retry, and DECISIONS #143 disclosed its own
+residual gaps in that trust check (a short-answer edge case in the
+citation-overlap heuristic, no stemming). Byte-identical text here would
+make a genuinely-answerable question that trips that heuristic edge case
+read exactly like "the records are silent on this" — a false negative
+with no way for anyone (Amber included) to tell the two apart without
+grepping server logs. `_UNGROUNDED_ANSWER` below is a separate, honest
+string: still calm and non-alarming (no 502, no "error" framing), but
+says "inconclusive," not "not covered" — a real distinction a careful
+reader can act on (e.g. try rephrasing, the same fix that resolved
+DECISIONS #143's own root-cause case). Server-side visibility is
+unchanged either way: still logged at ERROR below (and again inside
+generate_answer() itself).
 """
 
 from __future__ import annotations
@@ -30,6 +66,15 @@ from app.api.schemas import Citation, QueryRequest, QueryResponse
 from app.embeddings.client import EmbeddingInputTooLargeError, EmbeddingValidationError
 from app.rag.generation import GenerationValidationError, UngroundedAnswerError
 from app.rag.pipeline import answer_query
+
+# See module docstring's UngroundedAnswerError section for why this is
+# its own string, not app.rag.generation.NOT_IN_CORPUS_ANSWER.
+_UNGROUNDED_ANSWER = (
+    "This system found material that might be related to this question, but "
+    "could not produce a source citation it trusts enough to answer "
+    "confidently. This is inconclusive, not a confirmation that the records "
+    "are silent on this topic — try rephrasing the question."
+)
 
 logger = logging.getLogger("api.query")
 
@@ -55,14 +100,23 @@ def query(
     try:
         result = answer_query(conn, client, req.question)
     except UngroundedAnswerError as exc:
-        # Model violated its own grounding contract (claimed a grounded
-        # answer, zero valid citations survived) — an upstream/gateway
-        # problem, not something the client's input caused.
-        logger.error("query %r: ungrounded-answer contract violation: %s", req.question, exc)
-        raise HTTPException(
-            status_code=502,
-            detail="The language model returned an ungrounded answer. Please try again.",
-        ) from exc
+        # Exhausted the bounded corrective retry (DECISIONS #143) without
+        # ever producing a citation the code trusts. See module docstring
+        # for why this returns not_in_corpus=True instead of a 502, and
+        # why the answer text is `_UNGROUNDED_ANSWER` (this module), NOT
+        # generate_answer()'s own NOT_IN_CORPUS_ANSWER — a real zero-
+        # retrieval miss and "found something, couldn't trust a citation
+        # for it" are different situations and must not read identically.
+        # Logged at ERROR (unchanged) so this is still visible server-side
+        # even though the client sees a calm, non-error answer shape.
+        logger.error(
+            "query %r: ungrounded-answer contract violation after exhausted "
+            "corrective retries — returning not_in_corpus=True with the "
+            "distinct 'inconclusive' wording, not a 502 (DECISIONS #144): %s",
+            req.question,
+            exc,
+        )
+        return QueryResponse(answer=_UNGROUNDED_ANSWER, citations=[], not_in_corpus=True)
     except GenerationValidationError as exc:
         # Chat completion response wasn't valid JSON / didn't match the
         # required shape — same upstream-contract-violation family as

@@ -21,6 +21,22 @@ import pytest
 
 from app.db.connection import get_connection
 
+# DECISIONS #144: POST /documents/upload now requires X-Upload-Api-Key.
+# `_upload_api_key` (autouse) sets a fixed test value via monkeypatch.setenv
+# (auto-reverted at test teardown, never touches the real .env) so every
+# existing test in this module keeps working with one added header; the
+# auth tests near the bottom of this file cover the missing/wrong/
+# unconfigured-key branches directly.
+TEST_UPLOAD_API_KEY = "test-upload-key-do-not-use-in-prod"
+
+
+@pytest.fixture(autouse=True)
+def _upload_api_key(monkeypatch):
+    monkeypatch.setenv("UPLOAD_API_KEY", TEST_UPLOAD_API_KEY)
+
+
+AUTH_HEADERS = {"X-Upload-Api-Key": TEST_UPLOAD_API_KEY}
+
 
 def _cleanup(file_hash: str) -> None:
     conn = get_connection()
@@ -74,6 +90,7 @@ def test_new_upload_returns_202_and_schedules_processing(client, mock_background
         resp = client.post(
             "/documents/upload",
             files={"file": ("new_upload.txt", content, "text/plain")},
+            headers=AUTH_HEADERS,
         )
         assert resp.status_code == 202
         body = resp.json()
@@ -107,6 +124,7 @@ def test_completed_upload_short_circuits_with_200_and_no_reprocessing(client, mo
         resp = client.post(
             "/documents/upload",
             files={"file": ("already_done.txt", content, "text/plain")},
+            headers=AUTH_HEADERS,
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -135,6 +153,7 @@ def test_failed_upload_is_retried_and_failure_reason_cleared(client, mock_backgr
         resp = client.post(
             "/documents/upload",
             files={"file": ("broke_last_time.txt", content, "text/plain")},
+            headers=AUTH_HEADERS,
         )
         assert resp.status_code == 202
         body = resp.json()
@@ -176,6 +195,7 @@ def test_stuck_processing_upload_is_treated_as_retry_eligible(client, mock_backg
         resp = client.post(
             "/documents/upload",
             files={"file": ("stuck.txt", content, "text/plain")},
+            headers=AUTH_HEADERS,
         )
         assert resp.status_code == 202
         body = resp.json()
@@ -192,6 +212,7 @@ def test_unsupported_file_type_rejected_with_400(client, mock_background):
     resp = client.post(
         "/documents/upload",
         files={"file": ("malware.exe", b"binary content", "application/octet-stream")},
+        headers=AUTH_HEADERS,
     )
     assert resp.status_code == 400
     mock_background.assert_not_called()
@@ -201,6 +222,7 @@ def test_empty_file_rejected_with_400(client, mock_background):
     resp = client.post(
         "/documents/upload",
         files={"file": ("empty.txt", b"", "text/plain")},
+        headers=AUTH_HEADERS,
     )
     assert resp.status_code == 400
     mock_background.assert_not_called()
@@ -213,6 +235,7 @@ def test_oversized_file_rejected_with_400(client, mock_background, monkeypatch):
     resp = client.post(
         "/documents/upload",
         files={"file": ("too_big.txt", b"x" * 11, "text/plain")},
+        headers=AUTH_HEADERS,
     )
     assert resp.status_code == 400
     mock_background.assert_not_called()
@@ -236,6 +259,7 @@ def test_docx_extension_recognized_by_extension_not_just_content_type(client, mo
         resp = client.post(
             "/documents/upload",
             files={"file": ("real.docx", content, "application/octet-stream")},
+            headers=AUTH_HEADERS,
         )
         assert resp.status_code == 202
         mock_background.assert_called_once()
@@ -243,3 +267,83 @@ def test_docx_extension_recognized_by_extension_not_just_content_type(client, mo
         assert called_kind == "docx"
     finally:
         _cleanup(file_hash)
+
+
+def test_upload_rejected_401_when_api_key_header_missing(client, mock_background):
+    resp = client.post(
+        "/documents/upload",
+        files={"file": ("no_header.txt", b"content", "text/plain")},
+    )
+    assert resp.status_code == 401
+    mock_background.assert_not_called()
+
+
+def test_upload_rejected_401_when_api_key_wrong(client, mock_background):
+    resp = client.post(
+        "/documents/upload",
+        files={"file": ("wrong_key.txt", b"content", "text/plain")},
+        headers={"X-Upload-Api-Key": "not-the-real-key"},
+    )
+    assert resp.status_code == 401
+    mock_background.assert_not_called()
+
+
+def test_upload_rejected_503_when_server_has_no_key_configured(
+    client, mock_background, monkeypatch
+):
+    # Fail CLOSED, not open (DECISIONS #144, app/api/documents.py's module
+    # docstring): an unset UPLOAD_API_KEY must reject every request, not
+    # silently behave as "auth disabled." delenv (not setenv("")) so this
+    # actually exercises the missing-var branch, not the empty-string one.
+    monkeypatch.delenv("UPLOAD_API_KEY", raising=False)
+    resp = client.post(
+        "/documents/upload",
+        files={"file": ("no_server_key.txt", b"content", "text/plain")},
+        headers={"X-Upload-Api-Key": "anything"},
+    )
+    assert resp.status_code == 503
+    mock_background.assert_not_called()
+
+
+def test_upload_rejected_503_when_server_still_has_placeholder_key(
+    client, mock_background, monkeypatch
+):
+    # api-review pre-commit finding (DECISIONS #144): the .env.example
+    # placeholder value is public (committed to the repo) and must never
+    # actually protect anything, even if an operator forgets to change it.
+    monkeypatch.setenv("UPLOAD_API_KEY", "changeme")
+    resp = client.post(
+        "/documents/upload",
+        files={"file": ("placeholder_key.txt", b"content", "text/plain")},
+        headers={"X-Upload-Api-Key": "changeme"},
+    )
+    assert resp.status_code == 503
+    mock_background.assert_not_called()
+
+
+def test_non_ascii_header_value_rejected_401_not_500():
+    # api-review pre-commit finding (DECISIONS #144): hmac.compare_digest's
+    # str overload raises TypeError on a non-ASCII codepoint, which would
+    # otherwise surface as an unhandled 500 instead of the documented 401.
+    # Comparing as UTF-8 bytes (app/api/documents.py) avoids that.
+    #
+    # Exercised as a direct unit call, not through `client`/httpx: httpx
+    # itself refuses to encode a non-ASCII str into a request header
+    # (UnicodeEncodeError at the transport layer, before this app ever
+    # sees the request) — real-world delivery of a raw non-ASCII byte in
+    # an HTTP header requires a non-httpx client that doesn't enforce
+    # RFC 7230's US-ASCII recommendation, which this repo has no fixture
+    # for. Calling the dependency function directly with the same
+    # `provided` value it would receive either way tests the actual bug
+    # (`hmac.compare_digest`'s str-vs-bytes behavior) without fighting an
+    # unrelated transport-layer restriction.
+    import pytest
+    from fastapi import HTTPException
+
+    from app.api.documents import _require_upload_api_key
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("UPLOAD_API_KEY", TEST_UPLOAD_API_KEY)
+        with pytest.raises(HTTPException) as exc_info:
+            _require_upload_api_key(provided="not-the-key-éÿ")
+    assert exc_info.value.status_code == 401

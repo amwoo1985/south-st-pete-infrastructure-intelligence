@@ -57,6 +57,22 @@
         Add a PDF, DOCX, or TXT file to the corpus (max 20MB).
       </p>
       <form id="upload-form">
+        <label for="upload-api-key">Upload key</label>
+        <input
+          type="password"
+          id="upload-api-key"
+          name="upload_api_key"
+          autocomplete="off"
+          placeholder="Paste the current upload key here"
+          required
+        />
+        <p class="field-hint">
+          Required to upload — ask whoever manages this deployment for the
+          current key (it lives in their <code>.env</code> as
+          <code>UPLOAD_API_KEY</code>). Kept only in this browser
+          (localStorage) so you don't have to re-paste it every visit; never
+          sent anywhere except this page's own upload request.
+        </p>
         <input type="file" id="upload-file" name="file" accept=".pdf,.docx,.txt" required />
         <button type="submit" id="upload-submit">Upload</button>
       </form>
