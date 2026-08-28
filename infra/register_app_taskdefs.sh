@@ -24,6 +24,16 @@ set -a
 source .env
 set +a
 : "${RDS_HOST:?Set RDS_HOST in .env (see .env.example) — the real RDS endpoint}"
+: "${UPLOAD_API_KEY:?Set UPLOAD_API_KEY in .env — DECISIONS #144's upload-auth key, required by the api role}"
+# Mirrors app/api/documents.py's own placeholder rejection (deploy-review
+# pre-commit finding): a bare presence check would pass on an un-rotated
+# .env.example copy and register a taskdef that boots looking successful but
+# 503s every upload for real users — fail loud here instead, at register
+# time, not first-request time in prod.
+if [ "${UPLOAD_API_KEY}" = "changeme" ]; then
+  echo "Refusing to register: UPLOAD_API_KEY is still the .env.example placeholder ('changeme'). Set a real value in .env first." >&2
+  exit 1
+fi
 
 export AWS_DEFAULT_REGION=us-east-1
 export MSYS_NO_PATHCONV=1
@@ -46,6 +56,7 @@ for role in api worker; do
     -e "s#__RDS_MASTER_USERNAME__#${RDS_MASTER_USERNAME}#g" \
     -e "s#__RDS_MASTER_PASSWORD__#${RDS_MASTER_PASSWORD}#g" \
     -e "s#__OPENAI_API_KEY__#${OPENAI_API_KEY}#g" \
+    -e "s#__UPLOAD_API_KEY__#${UPLOAD_API_KEY}#g" \
     "infra/${role}-taskdef.template.json" > "${OUT_FILE}"
   # aws.exe (Windows-native, e.g. Git Bash on Windows) can't resolve a POSIX
   # /tmp/... path in a --cli-input-json file:// URI. cygpath -m (drive letter
