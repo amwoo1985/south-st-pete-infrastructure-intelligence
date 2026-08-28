@@ -33,7 +33,7 @@ _REQUEST = httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
 
 def _chunk(
     chunk_id: str,
-    text: str = "some retrieved chunk text confirming the answer is X",
+    text: str = "some retrieved chunk entry confirming the answer is X",
 ) -> RetrievedChunk:
     return RetrievedChunk(
         chunk_id=chunk_id,
@@ -275,6 +275,21 @@ def test_citation_is_supported_direct_unit_checks():
     # trivially passes (matches this module's own short NOT_IN_CORPUS_ANSWER-
     # shaped text and minimal test fixtures elsewhere in this file).
     assert _citation_is_supported("x", "anything at all")
+    # Real second-pass finding (DECISIONS #143): a single shared salient
+    # word is not enough when it's a person's name recurring across
+    # multiple, different agenda items by the same councilmember in the
+    # same meeting. This real chunk is genuinely about Councilmember
+    # Gabbard making a referral -- just a DIFFERENT one (a Sunrunner TOD
+    # overlay item, not the private lateral rebate program) -- and must
+    # still be rejected.
+    assert not _citation_is_supported(
+        "Councilmember Gabbard requested a referral about the private "
+        "lateral rebate program.",
+        "councilmember gabbard respectfully requesting city council "
+        "approval of a transfer referral item a discussion regarding "
+        "initiating a new sunrunner tod overlay package from the hers "
+        "committee to the hlut committee for further discussion",
+    )
 
 
 def test_content_unsupported_citation_is_dropped_and_retried_then_succeeds():

@@ -197,6 +197,26 @@ _SUPPORT_STOPWORDS = frozenset(
         "voted", "business", "update", "updates", "discussion", "district",
         "relevant", "other", "regarding", "second", "thank", "thanks",
         "please", "would", "could", "should", "there", "their", "which",
+        # DECISIONS #143 (second pass, real evidence): "referral"/"referred"
+        # are themselves generic council-procedure vocabulary in THIS
+        # corpus — nearly every new-business agenda item in a Granicus
+        # transcript is phrased "councilmember X respectfully requesting a
+        # referral to Y committee" regardless of subject. Without this,
+        # a real live rerun found a citation whose overlap was ONLY
+        # "gabbard" + "referral" (the same councilmember making a SECOND,
+        # unrelated referral request later the same meeting) — real
+        # content, wrong specific agenda item, and it slipped past the
+        # first version of this check.
+        #
+        # Known, disclosed tradeoff (rag-review MEDIUM, this round, not
+        # fixed further): a query genuinely ABOUT the referral process
+        # itself (e.g. "how many referrals has Gabbard made") would lose
+        # "referral" as a discriminating word too. No such query is known
+        # to exist in this project's real usage today (Amber's CBA
+        # research asks for specific facts, not meta-counts of council
+        # procedure) — accepted as a real, named tradeoff, not silently
+        # risked.
+        "referral", "referrals", "referred",
         # Corpus-frequent proper nouns/domain terms (rag-review MEDIUM,
         # this round): near-universal across THIS corpus specifically
         # (South St. Petersburg / Pinellas County / Duke Energy CBA
@@ -223,7 +243,17 @@ def _salient_tokens(text: str) -> set[str]:
     deliberately simple, deterministic, dependency-free "does this text
     actually talk about the same specific thing" signal. Not a tokenizer in
     the NLP-library sense; a regex is sufficient for this corpus's plain
-    English prose (crawled HTML text and whisper-1 transcripts)."""
+    English prose (crawled HTML text and whisper-1 transcripts).
+
+    Exact string match, no stemming/lemmatization (rag-review MEDIUM, this
+    round, not fixed further): "referral" and "referred" are listed as two
+    separate stopword entries above for exactly this reason, and the same
+    gap exists for any other word pair this list doesn't happen to name —
+    a genuinely correct citation with a plural/tense mismatch on its only
+    1-2 distinguishing words could fail this check. Disclosed, not fixed,
+    for the same reason as MIN_SALIENT_OVERLAP's own disclosed gap above:
+    a real stemming library is a bigger, more principled fix than adding
+    word-form variants to a hand-maintained list one at a time."""
     return {
         w.lower()
         for w in _WORD_RE.findall(text)
@@ -231,18 +261,53 @@ def _salient_tokens(text: str) -> set[str]:
     }
 
 
+# DECISIONS #143 (second pass, real evidence): a bare 1-shared-word bar was
+# not enough. A real live rerun found a citation that shared exactly one
+# salient word ("gabbard") with the answer — a real chunk, the same real
+# councilmember, but a DIFFERENT specific referral request later in the same
+# meeting. A single shared word (often a person's name, recurring across
+# every agenda item they raise that meeting) isn't discriminating; requiring
+# at least 2 lets one coincidental/generic shared word through without
+# accepting a citation on that alone. Capped at the answer's own total
+# salient-token count so a short answer with only 1 checkable word doesn't
+# get an impossible (unsatisfiable) bar.
+#
+# Known, disclosed residual gap (rag-review HIGH finding, this round, not
+# fixed further this round): the cap means an answer with only ONE salient
+# token still only requires 1 word of overlap — the exact failure shape
+# this round found, just not yet reproduced with a real terse-answer query.
+# This corpus's real answers observed live this round were all full
+# sentences with several content words (GENERATION_SYSTEM_PROMPT rule 2
+# asks for "one short, natural-language sentence" at minimum, not a bare
+# name), so this is a real but currently theoretical gap, not one with its
+# own reproduction yet. A fundamentally more robust fix — requiring the
+# model to supply a short verbatim supporting quote per citation and
+# validating that quote is an actual substring of the cited chunk's text,
+# rather than inferring support from word overlap at all — would close
+# this class of gap structurally instead of by tuning a token-count
+# threshold against found examples one at a time. Flagged here as a real
+# follow-up, deliberately not built this round (disclosed, not hidden, per
+# this project's own convention — see DECISIONS #139's identical
+# treatment of a then-unresolved retrieval gap).
+MIN_SALIENT_OVERLAP = 2
+
+
 def _citation_is_supported(answer: str, chunk_text: str) -> bool:
     """True unless the answer contains checkable salient content words AND
-    none of them appear anywhere in the cited chunk's own text. An answer
-    with no salient words at all (a short/generic sentence — real examples
-    are this module's own NOT_IN_CORPUS_ANSWER-shaped text, and test
-    fixtures) has nothing to check and trivially passes; this check exists
-    to catch a specific, real, reproduced failure (a citation pointing at a
-    genuinely unrelated retrieved chunk), not to demand exhaustive overlap."""
+    fewer than `required` of them appear anywhere in the cited chunk's own
+    text (required = min(MIN_SALIENT_OVERLAP, total salient answer tokens)).
+    An answer with no salient words at all (a short/generic sentence — real
+    examples are this module's own NOT_IN_CORPUS_ANSWER-shaped text, and
+    test fixtures) has nothing to check and trivially passes; this check
+    exists to catch a specific, real, reproduced failure (a citation
+    pointing at a chunk that doesn't actually state the specific claim),
+    not to demand exhaustive overlap."""
     answer_tokens = _salient_tokens(answer)
     if not answer_tokens:
         return True
-    return bool(answer_tokens & _salient_tokens(chunk_text))
+    required = min(MIN_SALIENT_OVERLAP, len(answer_tokens))
+    overlap = answer_tokens & _salient_tokens(chunk_text)
+    return len(overlap) >= required
 
 
 NOT_IN_CORPUS_ANSWER = (
