@@ -24,7 +24,7 @@ set -a
 source .env
 set +a
 : "${RDS_HOST:?Set RDS_HOST in .env (see .env.example) — the real RDS endpoint}"
-: "${UPLOAD_API_KEY:?Set UPLOAD_API_KEY in .env — DECISIONS #144's upload-auth key, required by the api role}"
+: "${UPLOAD_API_KEY:?Set UPLOAD_API_KEY in .env — the upload-auth key from DECISIONS #144, required by the api role}"
 # Mirrors app/api/documents.py's own placeholder rejection (deploy-review
 # pre-commit finding): a bare presence check would pass on an un-rotated
 # .env.example copy and register a taskdef that boots looking successful but
