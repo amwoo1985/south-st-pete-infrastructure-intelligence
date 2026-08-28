@@ -23,6 +23,7 @@ from app.rag.generation import (
     NOT_IN_CORPUS_ANSWER,
     GenerationValidationError,
     UngroundedAnswerError,
+    _citation_is_supported,
     generate_answer,
 )
 from app.rag.retrieval import RetrievedChunk
@@ -30,7 +31,10 @@ from app.rag.retrieval import RetrievedChunk
 _REQUEST = httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
 
 
-def _chunk(chunk_id: str, text: str = "some retrieved chunk text") -> RetrievedChunk:
+def _chunk(
+    chunk_id: str,
+    text: str = "some retrieved chunk text confirming the answer is X",
+) -> RetrievedChunk:
     return RetrievedChunk(
         chunk_id=chunk_id,
         doc_type="test_doc_type",
@@ -231,6 +235,147 @@ def test_duplicate_valid_citation_deduped_in_result():
     result = generate_answer(client, "query", [chunk])
 
     assert result.citations == ("chunk-real",)
+
+
+# --- Content-support check + bounded grounding retry (DECISIONS #143) ------
+#
+# Real evidence this round: membership-in-the-retrieved-set alone let a
+# genuinely-retrieved but topically-unrelated chunk get cited for a claim
+# its own text never mentions. These tests cover the deterministic
+# lexical-overlap check that catches it, and the bounded corrective retry
+# that gives the model one more real chance before failing loud.
+
+
+def test_citation_is_supported_direct_unit_checks():
+    # Real on-topic pair (paraphrased from DECISIONS #143's actual repro).
+    assert _citation_is_supported(
+        "Councilmember Gabbard requested a referral about the private "
+        "lateral rebate program.",
+        "councilmember gabbard respectfully requesting a referral for an "
+        "update on the private lateral rebate program",
+    )
+    # Real off-topic pair (DECISIONS #143's actual wrong citation: zero
+    # shared salient words with the answer).
+    assert not _citation_is_supported(
+        "Councilmember Gabbard requested a referral about the private "
+        "lateral rebate program.",
+        "For South St. Pete CRA",
+    )
+    # Generic civic-meeting vocabulary (council/committee/motion/approved/
+    # etc., all in the stopword list) must NOT count as support on its own
+    # -- every transcript chunk has some of these regardless of topic. The
+    # answer's only real content word here ("streetscape") is absent from
+    # the unrelated chunk.
+    assert not _citation_is_supported(
+        "The committee approved the motion for the downtown streetscape.",
+        "A completely unrelated agenda item was discussed at the meeting "
+        "and the committee voted on the motion.",
+    )
+    # An answer with no salient content words has nothing to check and
+    # trivially passes (matches this module's own short NOT_IN_CORPUS_ANSWER-
+    # shaped text and minimal test fixtures elsewhere in this file).
+    assert _citation_is_supported("x", "anything at all")
+
+
+def test_content_unsupported_citation_is_dropped_and_retried_then_succeeds():
+    chunk_good = _chunk("chunk-real", text="the sky isle loan maturity was extended to 2049")
+    chunk_bad = _chunk("chunk-unrelated", text="For South St. Pete CRA")
+    first_payload = {
+        "answer": "The Sky Isle loan maturity date was extended to 2049.",
+        "citations": ["chunk-unrelated"],
+        "not_in_corpus": False,
+    }
+    second_payload = {
+        "answer": "The Sky Isle loan maturity date was extended to 2049.",
+        "citations": ["chunk-real"],
+        "not_in_corpus": False,
+    }
+    client = _fake_client(
+        side_effect=[_fake_response(first_payload), _fake_response(second_payload)]
+    )
+
+    result = generate_answer(client, "query", [chunk_good, chunk_bad])
+
+    assert result.citations == ("chunk-real",)
+    assert client.chat.completions.create.call_count == 2
+    # Second call's messages carry the corrective feedback naming the
+    # rejected chunk_id, appended after the original system/user pair.
+    _, kwargs = client.chat.completions.create.call_args
+    messages = kwargs["messages"]
+    assert len(messages) == 4
+    assert messages[2]["role"] == "assistant"
+    assert messages[3]["role"] == "user"
+    assert "chunk-unrelated" in messages[3]["content"]
+
+
+def test_content_unsupported_citation_exhausts_grounding_retries_and_raises():
+    chunk_bad = _chunk("chunk-unrelated", text="For South St. Pete CRA")
+    payload = {
+        "answer": "The Sky Isle loan maturity date was extended to 2049.",
+        "citations": ["chunk-unrelated"],
+        "not_in_corpus": False,
+    }
+    client = _fake_client(return_value=_fake_response(payload))
+
+    with pytest.raises(UngroundedAnswerError):
+        generate_answer(client, "query", [chunk_bad], max_grounding_attempts=2)
+
+    assert client.chat.completions.create.call_count == 2
+
+
+def test_transport_retry_during_a_grounding_retry_call_still_succeeds(monkeypatch):
+    # Real, previously-untested interaction (rag-review LOW finding, this
+    # round): a transport-retryable error (rate limit) happening on the
+    # SECOND call -- the corrective grounding-retry attempt -- must still
+    # get its own full max_attempts transport-retry budget, not inherit an
+    # already-exhausted one from the first grounding attempt.
+    monkeypatch.setattr("app.rag.generation.time.sleep", lambda _seconds: None)
+    chunk_good = _chunk("chunk-real", text="the sky isle loan maturity was extended to 2049")
+    chunk_bad = _chunk("chunk-unrelated", text="For South St. Pete CRA")
+    first_payload = {
+        "answer": "The Sky Isle loan maturity date was extended to 2049.",
+        "citations": ["chunk-unrelated"],
+        "not_in_corpus": False,
+    }
+    second_payload = {
+        "answer": "The Sky Isle loan maturity date was extended to 2049.",
+        "citations": ["chunk-real"],
+        "not_in_corpus": False,
+    }
+    rate_limit_response = httpx2.Response(status_code=429, request=_REQUEST)
+    client = _fake_client(
+        side_effect=[
+            _fake_response(first_payload),  # grounding attempt 1: bad citation
+            openai.RateLimitError("rate limited", response=rate_limit_response, body=None),
+            _fake_response(second_payload),  # grounding attempt 2, after 1 transport retry
+        ]
+    )
+
+    result = generate_answer(client, "query", [chunk_good, chunk_bad])
+
+    assert result.citations == ("chunk-real",)
+    assert client.chat.completions.create.call_count == 3
+
+
+def test_content_supported_citation_is_not_dropped():
+    # Guards against the content-support check being too strict and
+    # breaking genuinely-correct citations.
+    chunk = _chunk(
+        "chunk-real",
+        text="the health energy resilience and sustainability committee heard the referral",
+    )
+    payload = {
+        "answer": "The request was referred to the Health Energy Resilience and Sustainability Committee.",
+        "citations": ["chunk-real"],
+        "not_in_corpus": False,
+    }
+    client = _fake_client(return_value=_fake_response(payload))
+
+    result = generate_answer(client, "query", [chunk])
+
+    assert result.citations == ("chunk-real",)
+    assert result.invalid_citations_dropped == ()
+    client.chat.completions.create.assert_called_once()
 
 
 # --- Malformed response shape: model output is untrusted input -------------
