@@ -1555,3 +1555,10 @@ Full test suite: 503/503 (up from #143's 498 — 5 new tests this round: 3 uploa
 
 Why: both items close disclosed gaps rather than leaving them as known-risk — #1 closes CLAUDE.md's own "don't upload actually-sensitive documents until this is addressed" caveat for real, #2 closes the cross-domain MEDIUM #143 flagged rather than routing to the orchestrator, not fixed here. Both were real-verified against a live stack with a real OpenAI key rather than assumed correct from code review alone (matching DECISIONS #104/#125/#130/#137/#138/#142/#143's standing discipline), and the live-verification process itself caught a real process gap worth naming plainly: the running docker-compose container had been 5 days stale, meaning any "live" test run against it before the rebuild would have been testing the WRONG code — a mistake this round caught before it produced a false verification, not after.
 Date: 2026-08-28
+
+## #145 — #141's S3 audit gap closed for real: `south-st-pete-infra-dev` granted scoped read-only S3 access, tag scan re-run, clean
+
+Decision: `south-st-pete-infra-dev`'s existing inline policy (`org-and-support-diagnostics`, added mid-#141) was extended with a `S3ReadOnlyAudit` statement — `s3:ListAllMyBuckets`, `s3:GetBucketTagging`, `s3:GetBucketLocation`, scoped read-only, no write/delete actions granted. Re-ran the same tag scan already run against every other service in #141. Real result: `aws s3api list-buckets` returns zero buckets — **this account has no S3 buckets at all**, confirming #141's "believed low-risk, not verified" note was correct, now actually verified rather than assumed. The account-wide credential-exposure audit from #141 is fully closed — every service checked, no gap remaining.
+
+Why: #141 disclosed this as a real, uncleared corner rather than silently skipping it; closing it properly (grant the narrowest permission that answers the question, then actually run the check) rather than leaving "believed low-risk" standing indefinitely is what makes that earlier disclosure worth something.
+Date: 2026-08-28
