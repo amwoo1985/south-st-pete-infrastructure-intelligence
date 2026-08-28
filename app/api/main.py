@@ -1,7 +1,8 @@
 """FastAPI application entrypoint — Phase H (PLAN.md). Wires together the
-4 endpoints (POST /query, GET /health, GET /sources/{doc_id}, POST
-/documents/upload) over the already-built RAG pipeline
-(app/rag/pipeline.py) and embeddings pipeline (app/embeddings/pipeline.py).
+5 endpoints (POST /query, GET /health, GET /health/crawlers, GET
+/sources/{doc_id}, POST /documents/upload) over the already-built RAG
+pipeline (app/rag/pipeline.py) and embeddings pipeline
+(app/embeddings/pipeline.py).
 
 Run locally (repo root, docker-compose `db` service up, `.env`
 populated per app/db/connection.py):
@@ -20,10 +21,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import documents, health, query, sources
+from app.api import crawler_health, documents, health, query, sources
 from app.api.schema import apply_document_uploads_schema
 from app.db.connection import get_connection
+from app.db.crawl_runs import apply_crawl_runs_schema
 from app.db.schema import apply_schema
+from app.granicus.schema import apply_granicus_schema
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,14 +35,25 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     """Idempotent CREATE TABLE/INDEX IF NOT EXISTS for every table this
     API layer touches on startup: `chunks` (app/db/schema.py — already
-    required by the RAG pipeline this API wraps) and `document_uploads`
-    (app/api/schema.py — new this phase). Safe to run on every process
-    start, same as every other apply_schema()-style function in this
-    codebase (app/granicus/schema.py's apply_granicus_schema())."""
+    required by the RAG pipeline this API wraps), `document_uploads`
+    (app/api/schema.py), `crawl_runs` (app/db/crawl_runs.py), and
+    `granicus_transcription_jobs` (app/granicus/schema.py). The latter two
+    were previously only ever created by one-off scripts
+    (scripts/run_live_recrawl.py, scripts/register_granicus_meeting.py) —
+    api-review pre-commit finding on GET /health/crawlers (this phase):
+    without this, a genuinely fresh environment (new RDS instance, first
+    boot before any crawler/Granicus script has run) would 500 on that
+    endpoint instead of showing the never_run-for-everything state it
+    exists to display, since the tables it reads wouldn't exist yet. Safe
+    to call on every process start, same as `apply_schema`/
+    `apply_document_uploads_schema` above — every one of these functions
+    is CREATE TABLE/INDEX IF NOT EXISTS, not a migration."""
     conn = get_connection()
     try:
         apply_schema(conn)
         apply_document_uploads_schema(conn)
+        apply_crawl_runs_schema(conn)
+        apply_granicus_schema(conn)
     finally:
         conn.close()
     yield
@@ -59,6 +73,7 @@ app = FastAPI(
 
 app.include_router(query.router)
 app.include_router(health.router)
+app.include_router(crawler_health.router)
 app.include_router(sources.router)
 app.include_router(documents.router)
 

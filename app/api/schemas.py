@@ -87,6 +87,58 @@ class SourceRecordResponse(BaseModel):
     embedded_at: datetime | None
 
 
+class CrawlerSourceStatus(BaseModel):
+    """Latest known `crawl_runs` row for one Tier-1 source segment
+    (app/db/crawl_runs.py, DECISIONS #146) — or an explicit `never_run`
+    state when the source has no crawl_runs history at all yet. Kept
+    distinct from `failed` deliberately (rag.md's "don't guess, be
+    explicit about what's known vs. unknown" spirit, applied here even
+    though this isn't a RAG endpoint): "never attempted" and "tried and
+    broke" are different problems and collapsing them into one status
+    would hide which one a non-engineer is actually looking at."""
+
+    source_name: str
+    status: Literal["ok", "failed", "never_run"]
+    last_started_at: datetime | None
+    last_finished_at: datetime | None
+    inserted: int | None
+    skipped: int | None
+    chunks_failed: int | None
+    error_message: str | None
+
+
+class GranicusHealthStatus(BaseModel):
+    """Aggregated `granicus_transcription_jobs` state (app/granicus/
+    schema.py) — job-level counts, not a per-run history like
+    CrawlerSourceStatus, since Granicus has no crawl_runs-style "one
+    attempt per invocation" concept: a meeting is registered once, then
+    its single row transitions pending -> claimed -> completed|failed.
+    `status` reuses the same ok/failed/never_run vocabulary as
+    CrawlerSourceStatus so the UI can share one visual language across
+    both halves of GET /health/crawlers."""
+
+    status: Literal["ok", "failed", "never_run"]
+    total_jobs: int
+    pending: int
+    claimed: int
+    completed: int
+    failed: int
+    most_recent_failure_mp3_url: str | None
+    most_recent_failure_meeting_title: str | None
+    most_recent_failure_reason: str | None
+
+
+class CrawlerHealthResponse(BaseModel):
+    """GET /health/crawlers — the thing the README used to point at "look
+    at the job-status tables directly" for. checked_at is this response's
+    own generation time, distinct from any individual source's
+    last_started_at/last_finished_at."""
+
+    checked_at: datetime
+    sources: list[CrawlerSourceStatus]
+    granicus: GranicusHealthStatus
+
+
 class DocumentUploadResponse(BaseModel):
     """Shape returned by POST /documents/upload in every branch (already-
     completed short-circuit at HTTP 200, new-or-retry processing kickoff
