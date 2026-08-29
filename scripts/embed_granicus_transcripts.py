@@ -69,7 +69,10 @@ def main() -> None:
     result = embed_and_insert_chunks(conn, client, all_chunks)
     conn.close()
 
-    print(f"\nResult: inserted={result.inserted} skipped={result.skipped} failed={result.failed}")
+    print(
+        f"\nResult: inserted={result.inserted} updated={result.updated} "
+        f"skipped={result.skipped} failed={result.failed}"
+    )
     if result.failed_chunk_ids:
         print(f"Failed chunk_ids: {result.failed_chunk_ids}")
 

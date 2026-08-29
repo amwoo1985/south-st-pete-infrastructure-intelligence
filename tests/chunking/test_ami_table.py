@@ -128,3 +128,28 @@ def test_chunking_the_same_thresholds_twice_produces_identical_ids():
 
 def test_empty_thresholds_produces_no_chunks():
     assert chunk_ami_thresholds([]) == []
+
+
+# --- Geographic framing sentence (DECISIONS #154) ----------------------------
+
+
+def test_every_chunk_carries_the_honest_stpete_org_framing_sentence():
+    """DECISIONS #154's real fix for a real retrieval miss: a query naming
+    a place ("What is St. Petersburg's AMI") scored well under
+    RELEVANCE_THRESHOLD against these chunks because the old text never
+    named a source or place at all. The fix is a true, source-attributable
+    sentence (verifiable against this chunker's own one hard-coded URL,
+    stpete.org's income_limits.php) — not a jurisdiction claim about which
+    government body the dollar figures apply to. Every chunk (all 7
+    program groups, including the no-program 100%-AMI one) must carry it,
+    since every chunk in this module comes from that exact same page."""
+    thresholds = load_real_thresholds()
+    chunks = chunk_ami_thresholds(thresholds)
+    assert chunks  # sanity: fixture actually produced chunks
+    for chunk in chunks:
+        assert "stpete.org" in chunk.text
+        assert "City of St. Petersburg" in chunk.text
+        # Still honest, not a jurisdiction claim the source page itself
+        # never makes (see module docstring / DECISIONS #154's secondary
+        # finding) — the raw word "Pinellas" must never appear here.
+        assert "Pinellas" not in chunk.text

@@ -33,6 +33,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.db.schema import CHUNK_COLUMNS
+from app.embeddings.pipeline import compute_content_hash
 from app.rag.retrieval import RetrievedChunk, retrieve
 
 _DIMENSIONS = 1536
@@ -76,6 +77,7 @@ def _insert_chunk(
         chunk_id,
         doc_type,
         chunk_text,
+        compute_content_hash(chunk_text),
         section_label,
         source_url,
         published_date,

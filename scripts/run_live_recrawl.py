@@ -469,24 +469,38 @@ def run() -> None:
             finished_at = datetime.now(timezone.utc)
             print(
                 f"\n{segment.name}: {len(chunk_list)} chunks — "
-                f"inserted={result.inserted} skipped={result.skipped} failed={result.failed}"
+                f"inserted={result.inserted} updated={result.updated} "
+                f"skipped={result.skipped} failed={result.failed}"
             )
             if result.failed_chunk_ids:
                 print(f"  failed chunk_ids: {result.failed_chunk_ids}")
 
             # A source only counts as outcome='success' if the crawl step
             # AND at least some of its chunks actually landed or were
-            # legitimately already there (inserted or skipped > 0), or the
-            # source genuinely produced zero chunks this run (nothing to
-            # fail). If chunks were produced but EVERY one of them failed
-            # to embed/insert (e.g. a broken OpenAI key, a schema
-            # mismatch), that is a real, total failure for this source —
-            # recording it as 'success' just because the crawl step itself
-            # didn't raise would recreate exactly the silent-looks-fine
-            # blind spot this table exists to close (crawler-review
-            # pre-commit finding, DECISIONS #146).
+            # legitimately already there (inserted, updated, or skipped >
+            # 0), or the source genuinely produced zero chunks this run
+            # (nothing to fail). If chunks were produced but EVERY one of
+            # them failed to embed/insert (e.g. a broken OpenAI key, a
+            # schema mismatch), that is a real, total failure for this
+            # source — recording it as 'success' just because the crawl
+            # step itself didn't raise would recreate exactly the
+            # silent-looks-fine blind spot this table exists to close
+            # (crawler-review pre-commit finding, DECISIONS #146).
+            # `updated` folded in here (DECISIONS #154): a source whose
+            # live text genuinely changed and got re-embedded in place is
+            # exactly as much "this source's crawl worked" as a brand-new
+            # insert — crawl_runs' own `inserted` column has no separate
+            # slot for "updated" (that column predates content_hash and
+            # changing its schema is out of this round's scope), so
+            # updated counts are rolled into the `inserted` value recorded
+            # below rather than silently dropped from the persisted total.
             total_attempted = result.total
-            all_chunks_failed = total_attempted > 0 and result.inserted == 0 and result.skipped == 0
+            all_chunks_failed = (
+                total_attempted > 0
+                and result.inserted == 0
+                and result.updated == 0
+                and result.skipped == 0
+            )
             if all_chunks_failed:
                 outcome = "failed"
                 error_message = (
@@ -507,12 +521,15 @@ def run() -> None:
                 started_at=started_at,
                 finished_at=finished_at,
                 outcome=outcome,
-                inserted=result.inserted,
+                # updated folded into inserted — see all_chunks_failed's
+                # comment above (crawl_runs has no separate `updated`
+                # column; DECISIONS #154).
+                inserted=result.inserted + result.updated,
                 skipped=result.skipped,
                 chunks_failed=result.failed,
                 error_message=error_message,
             )
-            totals_inserted += result.inserted
+            totals_inserted += result.inserted + result.updated
             totals_skipped += result.skipped
             totals_failed_chunks += result.failed
             _pause_between_sources()

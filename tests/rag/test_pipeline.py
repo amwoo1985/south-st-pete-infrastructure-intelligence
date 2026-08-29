@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.db.schema import CHUNK_COLUMNS
+from app.embeddings.pipeline import compute_content_hash
 from app.rag.pipeline import answer_query
 
 _DIMENSIONS = 1536
@@ -32,6 +33,7 @@ def _insert_chunk(conn, *, chunk_id: str, embedding: list[float], chunk_text: st
         chunk_id,
         "test_doc_type",
         chunk_text,
+        compute_content_hash(chunk_text),
         "Test Section",
         "https://example.test/pipeline-test",
         None,

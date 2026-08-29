@@ -25,6 +25,25 @@ every other table in this codebase preferring a natural key over a
 surrogate one (chunks.chunk_id, granicus_transcription_jobs.mp3_url,
 document_uploads.file_hash).
 
+`inserted` column (DECISIONS #154, rag-review pre-commit finding, disclosed
+not fixed this round): as of app/embeddings/pipeline.py's content_hash
+change, `PipelineResult` gained a fourth outcome bucket, `updated`
+(existing chunk_id, genuinely changed text, re-embedded and upserted in
+place) — distinct from `inserted` (brand-new chunk_id). This table has no
+`updated` column of its own; `scripts/run_live_recrawl.py` folds
+`PipelineResult.updated` into the `inserted` value it records here rather
+than dropping it, so this column is no longer a 1:1 mirror of
+`PipelineResult.inserted` the way it was when this table was built
+(DECISIONS #146) — it is now `inserted + updated`. A real, disclosed gap
+this leaves: `GET /health/crawlers` (api-layer, DECISIONS #147) has no way
+to tell a source with brand-new content apart from one whose existing
+content just got refreshed. Adding a real `updated` column here (small,
+additive, same migration shape as this round's own `chunks.content_hash`)
+would close it properly — flagged to the orchestrator/api-layer as a
+cross-domain follow-up, not built in this round since it touches
+api-layer's owned `crawler_health.py`/response schema, not just this
+table.
+
 Nullable-over-sentinel (.claude/rules/data.md): `inserted`/`skipped`/
 `chunks_failed` are NULL only when the source's crawl step itself raised
 before `embed_and_insert_chunks` ever ran, so there is no real
