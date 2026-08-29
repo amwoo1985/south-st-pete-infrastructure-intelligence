@@ -131,6 +131,7 @@ def test_successful_query_returns_full_citation_attribution(client, monkeypatch)
 
     from app.db.connection import get_connection
     from app.db.schema import CHUNK_COLUMNS
+    from app.embeddings.pipeline import compute_content_hash
     from app.rag.generation import GenerationResult
     from app.rag.pipeline import AnswerResult
     from app.rag.retrieval import RetrievalResult, RetrievedChunk
@@ -143,10 +144,12 @@ def test_successful_query_returns_full_citation_attribution(client, monkeypatch)
     # (and committed again) in the finally block below so this test
     # leaves no row behind in the shared dev DB.
     chunk_id = "querytest" + "0" * 23
+    chunk_text = "Some real chunk text about the CBA."
     values = {
         "chunk_id": chunk_id,
         "doc_type": "uploaded_document",
-        "chunk_text": "Some real chunk text about the CBA.",
+        "chunk_text": chunk_text,
+        "content_hash": compute_content_hash(chunk_text),
         "section_label": "Section A",
         "source_url": "upload://testhash",
         "published_date": date(2026, 1, 1),

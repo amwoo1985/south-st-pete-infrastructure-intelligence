@@ -23,12 +23,15 @@ def test_source_found_returns_full_record_minus_embedding(client):
 
     from app.db.connection import get_connection
     from app.db.schema import CHUNK_COLUMNS
+    from app.embeddings.pipeline import compute_content_hash
 
     chunk_id = "sourcetest" + "0" * 22
+    chunk_text = "Some real chunk text for the sources endpoint test."
     values = {
         "chunk_id": chunk_id,
         "doc_type": "uploaded_document",
-        "chunk_text": "Some real chunk text for the sources endpoint test.",
+        "chunk_text": chunk_text,
+        "content_hash": compute_content_hash(chunk_text),
         "section_label": "Section B",
         "source_url": "upload://sourcehash",
         "published_date": date(2026, 2, 2),

@@ -20,6 +20,7 @@ from app.embeddings.client import EMBEDDING_DIMENSIONS
 from app.embeddings.pipeline import (
     _insert_chunk_row,
     chunk_already_embedded,
+    compute_content_hash,
     embed_and_insert_chunk,
     embed_and_insert_chunks,
 )
@@ -74,6 +75,132 @@ def test_embed_and_insert_chunk_skips_and_makes_no_api_call_when_chunk_id_exists
     # No second API call — the whole point of the pre-check per
     # .claude/rules/deploy.md's idempotency-key-before-external-write rule.
     assert client.embeddings.create.call_count == 1
+
+
+# --- Content-staleness (DECISIONS #154): same chunk_id, changed text ------
+
+
+def test_embed_and_insert_chunk_reembeds_and_updates_in_place_when_text_changes(db_conn):
+    """The real scenario DECISIONS #154 exists to fix: a source recrawl
+    produces the SAME chunk_id (identity unchanged — chunk_id is never
+    derived from body text, app/chunking/base.py) but genuinely DIFFERENT
+    chunk_text (e.g. a corrected dollar figure). The old chunk_id-only
+    pre-check would have silently skipped this forever; the content_hash
+    pre-check must detect the change, pay for exactly one real re-embed,
+    and UPDATE the existing row in place — not skip, and not duplicate."""
+    chunk_id = make_chunk_id("https://www.stpete.org/test/staleness", "same-identity")
+    original = Chunk(
+        chunk_id=chunk_id,
+        doc_type="test_doc_type",
+        text="the grant is worth $10,000",
+        section_label="Section staleness",
+        attribution=Attribution(
+            source_url="https://www.stpete.org/test/staleness",
+            retrieval_timestamp=datetime(2026, 8, 21, tzinfo=timezone.utc),
+            published_date=date(2026, 8, 13),
+        ),
+    )
+    revised = Chunk(
+        chunk_id=chunk_id,  # same identity — simulates a real recrawl, not a new chunk
+        doc_type="test_doc_type",
+        text="the grant is worth $12,500",  # genuinely different content
+        section_label="Section staleness",
+        attribution=original.attribution,
+    )
+
+    client = _fake_client(
+        side_effect=[
+            _fake_response(_valid_embedding(0.1)),
+            _fake_response(_valid_embedding(0.9)),
+        ]
+    )
+
+    first = embed_and_insert_chunk(db_conn, client, original, commit=False)
+    assert first == "inserted"
+    assert client.embeddings.create.call_count == 1
+
+    second = embed_and_insert_chunk(db_conn, client, revised, commit=False)
+    assert second == "updated"
+    # A real second embed call was paid for — the content genuinely
+    # changed, this is NOT the free skip path.
+    assert client.embeddings.create.call_count == 2
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT chunk_text, content_hash FROM chunks WHERE chunk_id = %s", (chunk_id,)
+        )
+        chunk_text, content_hash = cur.fetchone()
+    # Same row (same chunk_id), new text — never a duplicate.
+    assert chunk_text == "the grant is worth $12,500"
+    assert content_hash == compute_content_hash("the grant is worth $12,500")
+
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM chunks WHERE chunk_id = %s", (chunk_id,))
+        (row_count,) = cur.fetchone()
+    assert row_count == 1
+
+
+def test_embed_and_insert_chunk_skips_when_content_genuinely_unchanged(db_conn):
+    """The other real branch DECISIONS #154 must not break: a chunk_id
+    that already exists AND whose text is byte-identical to what's
+    already stored must still skip with zero API calls — this is the
+    property that keeps a weekly recrawl over mostly-unchanged live pages
+    cheap (DECISIONS #126/#134)."""
+    chunk = _make_chunk("unchanged-test", text="this text never changes")
+    client = _fake_client(return_value=_fake_response(_valid_embedding()))
+
+    first = embed_and_insert_chunk(db_conn, client, chunk, commit=False)
+    assert first == "inserted"
+
+    # A fresh Chunk object, same identity AND same text (exactly what a
+    # recrawl of an unchanged live page produces) — not literally the same
+    # Python object, to prove this is a real content comparison, not an
+    # object-identity shortcut.
+    same_content_again = _make_chunk("unchanged-test", text="this text never changes")
+    second = embed_and_insert_chunk(db_conn, client, same_content_again, commit=False)
+    assert second == "skipped"
+    assert client.embeddings.create.call_count == 1
+
+
+def test_embed_and_insert_chunk_reembeds_a_row_with_null_content_hash_even_if_text_matches(
+    db_conn, monkeypatch
+):
+    """Real, disclosed transition-state behavior (DECISIONS #154): a row
+    written before scripts/backfill_content_hash.py has reached it carries
+    content_hash IS NULL. _existing_content_hash() treats that the same as
+    "differs" — deliberately conservative, so any such row gets a real
+    content_hash filled in the next time it's processed instead of being
+    silently skipped forever.
+
+    This transient state can only exist BEFORE the migration locks
+    content_hash NOT NULL (app/db/schema.py) — once locked (as this
+    suite's own shared dev DB now is, after a real local run of
+    scripts/backfill_content_hash.py), the live NOT NULL constraint
+    correctly makes a literal NULL content_hash row impossible to insert
+    at all, so this test cannot (and should not) recreate that state via a
+    raw INSERT against a live, already-migrated table. Instead it
+    monkeypatches `_existing_content_hash` — the one function whose return
+    value this scenario is actually about — to report exactly the shape a
+    real not-yet-backfilled row would have (row_exists=True,
+    stored_hash=None), and confirms `embed_and_insert_chunk` reacts
+    correctly: pays for a real embed call and labels the outcome
+    "updated", not "skipped"."""
+    chunk = _make_chunk("null-hash-migration-test", text="pre-existing text")
+
+    monkeypatch.setattr(
+        "app.embeddings.pipeline._existing_content_hash",
+        lambda conn, chunk_id: (True, None),
+    )
+
+    client = _fake_client(return_value=_fake_response(_valid_embedding()))
+    outcome = embed_and_insert_chunk(db_conn, client, chunk, commit=False)
+
+    assert outcome == "updated"
+    assert client.embeddings.create.call_count == 1
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT content_hash FROM chunks WHERE chunk_id = %s", (chunk.chunk_id,))
+        (content_hash,) = cur.fetchone()
+    assert content_hash == compute_content_hash("pre-existing text")
 
 
 def test_advisory_lock_serializes_concurrent_sessions_on_the_same_key():
@@ -136,9 +263,10 @@ def test_embed_and_insert_chunk_persists_all_fields(db_conn):
 
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT chunk_id, doc_type, chunk_text, section_label, source_url, "
-            "published_date, retrieval_timestamp, start_seconds, end_seconds, "
-            "embedding, embedding_model, embedded_at FROM chunks WHERE chunk_id = %s",
+            "SELECT chunk_id, doc_type, chunk_text, content_hash, section_label, "
+            "source_url, published_date, retrieval_timestamp, start_seconds, "
+            "end_seconds, embedding, embedding_model, embedded_at FROM chunks "
+            "WHERE chunk_id = %s",
             (chunk.chunk_id,),
         )
         row = cur.fetchone()
@@ -148,6 +276,7 @@ def test_embed_and_insert_chunk_persists_all_fields(db_conn):
         chunk_id,
         doc_type,
         chunk_text,
+        content_hash,
         section_label,
         source_url,
         published_date,
@@ -162,6 +291,7 @@ def test_embed_and_insert_chunk_persists_all_fields(db_conn):
     assert chunk_id == chunk.chunk_id
     assert doc_type == "test_doc_type"
     assert chunk_text == "the real text to embed"
+    assert content_hash == compute_content_hash("the real text to embed")
     assert section_label == chunk.section_label
     assert source_url == chunk.attribution.source_url
     assert published_date == chunk.attribution.published_date
@@ -179,7 +309,12 @@ def test_embed_and_insert_chunk_persists_all_fields(db_conn):
 def test_insert_chunk_row_on_conflict_updates_text(db_conn):
     chunk = _make_chunk("upsert-test", text="original text")
     _insert_chunk_row(
-        db_conn, chunk, _valid_embedding(0.1), "text-embedding-3-small", datetime.now(timezone.utc)
+        db_conn,
+        chunk,
+        _valid_embedding(0.1),
+        "text-embedding-3-small",
+        datetime.now(timezone.utc),
+        compute_content_hash("original text"),
     )
 
     updated_chunk = _make_chunk("upsert-test", text="revised text")
@@ -190,12 +325,16 @@ def test_insert_chunk_row_on_conflict_updates_text(db_conn):
         _valid_embedding(0.9),
         "text-embedding-3-small",
         datetime.now(timezone.utc),
+        compute_content_hash("revised text"),
     )
 
     with db_conn.cursor() as cur:
-        cur.execute("SELECT chunk_text FROM chunks WHERE chunk_id = %s", (chunk.chunk_id,))
-        (chunk_text,) = cur.fetchone()
+        cur.execute(
+            "SELECT chunk_text, content_hash FROM chunks WHERE chunk_id = %s", (chunk.chunk_id,)
+        )
+        chunk_text, content_hash = cur.fetchone()
     assert chunk_text == "revised text"
+    assert content_hash == compute_content_hash("revised text")
     db_conn.rollback()
 
 
