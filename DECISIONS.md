@@ -1766,3 +1766,18 @@ Scope of what was authorized: building and manually running `infra/run_granicus_
 
 Why: this project's DECISIONS.md discipline requires every design decision get a numbered entry at the time it's made, not batched or left implicit — #155 explicitly deferred this call to Amber rather than guessing, and once she made it, the record needed its own entry rather than letting a later entry (or a script's header comment) silently assume authorization that was never actually logged.
 Date: 2026-10-04
+
+## #157 — Amber's explicit sign-off: scale `south-st-pete-worker` to zero; Granicus transcription now runs only via the manual trigger script
+
+Decision: Amber approved, in conversation on 2026-10-05, scaling the always-on `south-st-pete-worker` service to `desiredCount=0` and processing pending Granicus meetings through `infra/run_granicus_worker_task.sh` instead. Her words: "yes", in reply to the proposal to scale the service to zero, which would stop the 24/7 cost (roughly $88/month for the 2 vCPU / 9 GB task alone, estimated from published Fargate rates, not billing data).
+
+Precondition: the Granicus queue was read as 0 pending / 0 claimed / 4 completed a few minutes before the change (orchestrator's live read). The agent re-read of the health endpoint could not be completed in this session, so that read is minutes old, not taken immediately before the change.
+
+Executed by Amber in her own terminal (`$env:AWS_PROFILE="south-st-pete"; aws ecs update-service --cluster south-st-pete-dev --service south-st-pete-worker --desired-count 0`). Verified afterward: `desiredCount=0`, `runningCount=0`, `pendingCount=0`.
+
+Rollback: `aws ecs update-service --cluster south-st-pete-dev --service south-st-pete-worker --desired-count 1`.
+
+Not verified: transcription through the manual-trigger path. The first real pending meeting processed this way is the verification. Until then, the always-on worker is off, so a meeting registered now waits in the queue until the manual script is run.
+
+Why: the always-on worker was the dominant known Fargate cost, and the scheduler path stayed blocked. Amber accepted the tradeoff of manual triggering and the unverified transcription path in exchange for stopping the cost.
+Date: 2026-10-05
