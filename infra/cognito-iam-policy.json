@@ -22,7 +22,10 @@
         "cognito-idp:CreateUserPoolClient",
         "cognito-idp:CreateManagedLoginBranding",
         "cognito-idp:DescribeManagedLoginBrandingByClient",
-        "cognito-idp:AdminCreateUser"
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:GetUserPoolMfaConfig",
+        "cognito-idp:DescribeUserPoolClient",
+        "cognito-idp:AdminGetUser"
       ],
       "Resource": "arn:aws:cognito-idp:us-east-1:*:userpool/*"
     }
