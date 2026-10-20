@@ -1877,3 +1877,12 @@ Rollout note: the old API image stays live during `up`. After 0003, its reads an
 
 Why: preserves paid-for work and keeps the CBA corpus usable if that tool is ever revived, while still giving Phase C an empty, org-scoped `public.chunks` to build on.
 Date: 2026-10-19
+
+#160/#161 production rollout log, 2026-10-19 (each step run by Amber; read-only checks by Claude):
+- Baseline (`run_migration.sh report`, before any change): `chunks` 593 (174 `granicus_transcript`), `document_uploads` 0, `crawl_runs` 13, `granicus_transcription_jobs` 4.
+- Manual RDS snapshot `south-st-pete-civic-archive-2026-10-19`: verified `available`, 100%, before `up`.
+- Image `south-st-pete-app:1c3a804` pushed; registered `south-st-pete-api:6` (image 1c3a804, `LOCAL_DB_USER=app_runtime`) and `south-st-pete-migrate:14`.
+- `run_migration.sh up`: applied 0001_baseline, 0002_app_runtime_grants, 0003_archive_civic_corpus, exit 0.
+- `south-st-pete-api` updated to `:6`. The service reached a steady state, the old task was stopped, and the new task logged "Application startup complete" (the schema check passed as `app_runtime`). Live `GET /health` returned `{"status":"ok","db":"ok"}`, and `/health/crawlers` returns 404 (Phase A code is live).
+- After `report`: public `chunks`/`document_uploads` are at 0; `archive.civic_chunks` 593, `archive.document_uploads` 0, `archive.crawl_runs` 13, `archive.granicus_transcription_jobs` 4. These match the baseline exactly, so nothing was lost.
+- The deployed API no longer logs in as the RDS master user. Master credentials now live only in the `south-st-pete-migrate` task definition.
