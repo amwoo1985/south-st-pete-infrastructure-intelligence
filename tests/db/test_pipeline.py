@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.chunking.base import Chunk, make_chunk_id
-from app.crawlers.base import Attribution
+from app.provenance import Attribution
 from app.embeddings.client import EMBEDDING_DIMENSIONS
 from app.embeddings.pipeline import (
     _insert_chunk_row,

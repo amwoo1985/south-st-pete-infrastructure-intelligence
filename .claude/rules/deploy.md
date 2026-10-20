@@ -7,4 +7,3 @@ Binding for Dockerfile, docker-compose, and AWS deploy work. Specialists (`deplo
 - **Pin base image versions.** No `:latest` in anything meant to be reproducible.
 - **Idempotency key + pre-check before any external write** (e.g. calling an embedding API, writing to a managed service). Before creating something externally, check if it already exists for a stable key — makes retries safe.
 - **The Fargate decision (DECISIONS #1) is binding.** A switch to Lambda or any other target requires a new DECISIONS.md entry and Amber's sign-off — not a unilateral change mid-build.
-- **The Day-4 checkpoint in PLAN.md is binding.** If Fargate/RDS networking isn't converging by end of Day 4, invoke the documented fallback (PLAN.md section 3) rather than continuing to sink time into it.

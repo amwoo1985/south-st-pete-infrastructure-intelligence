@@ -1,10 +1,10 @@
 ---
 name: api-layer
-description: Specialist for South St. Petersburg Infrastructure Intelligence's FastAPI layer — routes, Pydantic models, validation, OpenAPI docs (Phase 5 of PLAN.md). Invoke for anything touching HTTP endpoints, request/response schemas, or API error handling. Returns structured output, terse by default.
+description: Specialist for the Coalition Grant App's FastAPI layer — routes, Pydantic models, validation, OpenAPI docs. Invoke for anything touching HTTP endpoints, request/response schemas, or API error handling. Returns structured output, terse by default.
 model: sonnet
 ---
 
-You are api-layer, the FastAPI specialist for South St. Petersburg Infrastructure Intelligence. You do not teach — the orchestrator narrates rationale to Amber. Default mode: terse, structured.
+You are api-layer, the FastAPI specialist for the Coalition Grant App. You do not teach — the orchestrator narrates rationale to Amber. Default mode: terse, structured.
 
 ## Output Contract
 
@@ -39,4 +39,4 @@ Read `.claude/rules/data.md` before producing changes. Every endpoint needs an e
 
 ## Escalation
 
-Add to `blockers:` for: auth/rate-limiting scope decisions (out of scope per PLAN.md's stretch list unless Amber asks for it), any endpoint shape change that would break already-shipped code.
+Add to `blockers:` for: auth/role-model decisions that aren't already settled in DECISIONS.md (Phase B is Cognito + MFA per #158), any endpoint shape change that would break already-shipped code.

@@ -1,25 +1,18 @@
-# Blaq Blob
+# Coalition Grant App
 
-(Formerly "cba-rag-assistant," then "South St. Petersburg Infrastructure Intelligence" — renamed per DECISIONS #9, then DECISIONS #136.)
+(Repurposed in place from "Blaq Blob" / South St. Petersburg Infrastructure Intelligence — DECISIONS #158. That tool's crawlers, Granicus transcription pipeline, and civic-records corpus were dropped; its grounded-RAG core, upload path, and AWS deploy were kept.)
 
-A RAG tool over local government meeting records, grants, and (later) statutes — built for Amber Woods's real, ongoing civic work chairing the South St. Petersburg Energy Coalition and its Community Benefits Agreement negotiation with the City of St. Petersburg, residents, and Duke Energy Florida. This is a real operational tool, not a portfolio demo — built to outlast Amber's own day-to-day involvement, so whoever she hands it to next can run it without her walking them through it live (DECISIONS #136).
+A multi-organization grant application tool for the Florida coalition, administered by the Florida Food Policy Council (FLFPC; Erica Hall, initial admin lead). It uses each organization's authorized documents to discover funding opportunities, assess fit, draft application fields one at a time with cited sources, route drafts through separate writer → partner → reviewer → approver steps, and track submissions and award obligations. This is a real operational tool that has to outlast any one person's day-to-day involvement, so whoever inherits it can run it without a live walkthrough (DECISIONS #136).
 
-## Two independent tracks — do not conflate
-
-1. **CV + AI self-analysis** — due 2026-08-26 12PM. Handled entirely outside this project. Not scheduled here, not gated by this project's progress.
-2. **This project** — its own 9-day window, Day 1 = 2026-08-19, Day 9 = 2026-08-27. Not gated by the CV/analysis deadline. See DECISIONS #9.
-
-Conflating these two was the exact ambiguity that cost ~2 months on R-EX at VideoAmp. Keep them separate.
+The requirements source is the "Coalition Grant App — Requirements Questionnaire" (Oct. 6, 2026, Erica's completed draft). Items it marks "Proposed" or "Confirm" are not settled requirements. Don't build on them as if they were; record the working assumption in DECISIONS.md.
 
 ## Workflow
 
-Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra`, `crawler` for building; `rag-review`, `api-review`, `deploy-review`, `crawler-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
+Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra` for building; `rag-review`, `api-review`, `deploy-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
 
 `.claude/rules/secrets.md` governs any command that touches `.env` or another file carrying a live credential — binding on every specialist and on direct shell commands in this session alike (see DECISIONS #131, #135).
 
 Every non-trivial design decision gets a numbered `DECISIONS.md` entry before or immediately after it's made, never batched at the end.
-
-This mirrors the agentic workflow used to build R-EX at VideoAmp (orchestrator + narrow specialists + adversarial reviewers + a numbered decisions log), sized for a solo real-tool build instead of an enterprise monorepo.
 
 ## Precedence
 
@@ -30,31 +23,32 @@ This mirrors the agentic workflow used to build R-EX at VideoAmp (orchestrator +
 - Python 3.12, FastAPI, minimal web UI
 - PostgreSQL + pgvector (embeddings/retrieval)
 - Docker + docker-compose (local), AWS Fargate/ECS + RDS (deploy)
-- Embedding/LLM provider: **OpenAI** (`text-embedding-3-small`, `gpt-4o-mini`) — DECISIONS #13, smoke-tested 2026-08-19 with a real embedding call and chat completion.
-- Hosted transcription API provider: **OpenAI** (`whisper-1`) — DECISIONS #13, smoke-tested 2026-08-19 against a real St. Petersburg City Council meeting clip.
+- Embedding/LLM provider: **OpenAI** (`text-embedding-3-small`, `gpt-4o-mini`) — DECISIONS #13. The API does not train on submitted data by default; questionnaire 8.5 still requires checking each funder's and partner's terms before their documents are processed.
+- Auth: **AWS Cognito** with MFA (authenticator app / passkeys) — DECISIONS #158. Not built yet (Phase B).
 
-## Data sources (DECISIONS #11, #12)
+## Phases (DECISIONS #158)
 
-- **Tier 1** (build first): Pinellas County BCC via Legistar; St. Petersburg grants/loans; Pinellas Community Foundation grants.
-- **Tier 1.5** (own sub-pipeline): St. Petersburg City Council via Granicus — RSS-indexed by date, direct MP3 per meeting, hosted-API transcription as an async worker job, 12-month hard backfill bound.
-- **Deferred, not built this cycle**: Florida PSC (needs headless-browser investigation), GovTrack (blocked — needs real API investigation), Florida Statutes (not a crawler target — separate on-demand citation-lookup tool).
-- Adding any new source requires a new DECISIONS.md entry first.
+- **A** — Strip the civic-records tool down to its reusable core. ← done in #158
+- **B** — Cognito auth + MFA, organizations, users, roles, time-limited per-application access.
+- **C** — Per-organization document vault; retrieval isolated per org (no cross-org leaks through search, exports, or AI answers).
+- **D** — Opportunities, master-spreadsheet import/export, applications (LOI ↔ full), fields with word/char limits.
+- **E** — Field-by-field cited drafting, review/approval chain, comments, version history, audit log.
+- **F** — Readiness checks, Word/package export, deadline reminders.
 
-## Plan
-
-See `PLAN.md` for the phase breakdown, day-by-day schedule, and checkpoint/fallback order. (PLAN.md's original "interview-defense" framing is historical — see DECISIONS #136; README's handoff-notes section is the live reference now.)
+The detailed design plan is kept locally, not committed.
 
 ## Hard constraints (do not relitigate without a new DECISIONS.md entry)
 
 - No Kubernetes, no Terraform/IaC this cycle (DECISIONS #2).
-- One AWS deploy target (Fargate), decided once (DECISIONS #1).
+- One AWS deploy target (Fargate) (DECISIONS #1).
+- **No real partner documents on any deployed instance until Phase B (auth + MFA + roles) has shipped.** Today the only gate is a single shared upload key (DECISIONS #144), and `/query` and `/sources` are open. That's fine for test data and wrong for EINs, financials, or banking details.
+- **The app never submits applications or sends email in the first version** — it prepares packages for a designated human submitter (questionnaire 7.1, 3.3).
+- **The app never stores funder-portal passwords, recovery codes, or MFA secrets**, and credentials are never available to the AI drafting process (questionnaire 9.3, 9.4).
+- **Generated text never invents** achievements, metrics, partner commitments, or future funding. Every factual claim traces to a cited, authorized source; anything without a source gets flagged instead of written (questionnaire 5.4).
+- A writer can never approve their own application (questionnaire 2.1).
 - Every retrieval/generation path must be explainable in plain language to a non-engineer successor — no undocumented magic.
-- Crawler source list is closed (DECISIONS #11) — no silent scope expansion.
-- Granicus backfill is hard-bounded to 12 months (DECISIONS #12).
 
-## Ongoing-operation notes (this is not a one-off demo)
+## Ongoing-operation notes
 
-- Every crawler breaks when its source site's structure changes — needs at least basic visibility (a health/status view), not silent failure.
-- Recrawl cadence per source is not yet decided — needs its own DECISIONS entry once crawlers are stable.
-- Fargate/RDS run 24/7 at real (if small) cost; transcription API usage across 12 months of multi-hour audio is likely the single largest cost line — set a budget alert before the unattended full backfill runs.
-- The live upload endpoint has no auth yet (explicitly a stretch item) — do not upload actually-sensitive negotiation documents to a publicly reachable deployed instance until that's addressed.
+- Fargate/RDS run 24/7 at real (if small) cost; OpenAI usage scales with drafting volume (working assumption: 5–10 applications/month, questionnaire 3.1).
+- The live RDS still holds the old civic-records corpus and the orphaned `crawl_runs` / `granicus_transcription_jobs` tables, and the deployed API image is still the pre-#158 build. See DECISIONS #158 for the AWS cleanup that's waiting on explicit sign-off.

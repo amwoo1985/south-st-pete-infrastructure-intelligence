@@ -1,7 +1,7 @@
 #!/bin/bash
-# Fills infra/{api,worker}-taskdef.template.json placeholders from the
-# repo-root .env (never committed — DECISIONS #69) and registers both
-# task definitions for real. Templates hold ONLY placeholders
+# Fills infra/api-taskdef.template.json placeholders from the
+# repo-root .env (never committed — DECISIONS #69) and registers the
+# task definition for real. Templates hold ONLY placeholders
 # (__PLACEHOLDER__ tokens), never real values — .claude/rules/deploy.md's
 # "secrets never live in committed config" rule (DECISIONS #119/#120:
 # plain environment variables are this project's chosen secrets path,
@@ -48,7 +48,7 @@ DB_HOST="${RDS_HOST}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-for role in api worker; do
+for role in api; do
   OUT_FILE="${TMP_DIR}/${role}-taskdef.json"
   sed \
     -e "s#__IMAGE__#${IMAGE}#g" \
