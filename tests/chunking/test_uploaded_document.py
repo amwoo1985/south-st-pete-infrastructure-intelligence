@@ -2,7 +2,7 @@
 /documents/upload chunker (Phase H). Exercises the real
 chunk_uploaded_document() entry point (not private helpers standing in
 for it), against real TXT/DOCX bytes built in-test and a real PDF
-fixture already present in tests/fixtures/legistar/, matching this
+fixture under tests/fixtures/uploaded_document/, matching this
 repo's real-input-over-hand-built-stub testing convention.
 """
 
@@ -173,7 +173,7 @@ def test_docx_oversized_heading_section_still_splits_by_size_not_split_paragraph
     ]
 
 
-# --- Fail-loud on empty documents (.claude/rules/crawler.md) ----------------
+# --- Fail-loud on empty documents (.claude/rules/data.md) ----------------
 
 
 def test_whitespace_only_txt_raises_empty_document_error():
@@ -214,9 +214,9 @@ def test_unsupported_kind_raises_value_error():
 
 
 def test_real_pdf_fixture_produces_nonempty_chunks():
-    raw = (FIXTURES_ROOT / "legistar" / "agenda_fallback.pdf").read_bytes()
+    raw = (FIXTURES_ROOT / "uploaded_document" / "sample_agenda.pdf").read_bytes()
     chunks = chunk_uploaded_document(
-        raw, filename="agenda_fallback.pdf", file_hash=FILE_HASH, kind="pdf"
+        raw, filename="sample_agenda.pdf", file_hash=FILE_HASH, kind="pdf"
     )
     assert len(chunks) >= 1
     assert all(c.doc_type == DOC_TYPE for c in chunks)

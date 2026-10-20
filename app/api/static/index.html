@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>South St. Petersburg Infrastructure Intelligence</title>
+  <title>Coalition Grant App</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header>
-    <h1>South St. Petersburg Infrastructure Intelligence</h1>
+    <h1>Coalition Grant App</h1>
     <p class="subtitle">
-      Ask a question about local government meeting records, grants, and CBA
-      negotiation documents. Answers are grounded only in the indexed corpus.
+      Ask a question about uploaded organization documents. Answers are
+      grounded only in the indexed documents and cite their sources.
     </p>
   </header>
 
@@ -24,7 +24,7 @@
           name="question"
           rows="3"
           maxlength="2000"
-          placeholder="e.g. What community benefits has Duke Energy committed to in the CBA negotiations?"
+          placeholder="e.g. What outcome measures does our food access program report?"
           required
         ></textarea>
         <button type="submit" id="query-submit">Ask</button>
@@ -79,15 +79,6 @@
       <div id="upload-status" class="status" hidden></div>
     </section>
 
-    <section id="crawler-health-section">
-      <h2>Crawler health</h2>
-      <p class="subtitle">
-        Latest known status per source, plus the Granicus transcription
-        pipeline. Refreshed on page load.
-      </p>
-      <div id="crawler-health-status" class="status" hidden></div>
-      <ul id="crawler-health-list" class="crawler-status-list"></ul>
-    </section>
   </main>
 
   <script src="/app.js"></script>

@@ -5,8 +5,8 @@ idempotency ledger row in `document_uploads` (app/api/schema.py).
 BackgroundTasks, not a Granicus-style polling worker table (directive,
 already decided): this is a one-shot job (seconds, not hours) over a
 file already fully in memory, not a multi-hour recurring transcription
-job — .claude/rules/crawler.md's worker-table guidance
-("FOR UPDATE SKIP LOCKED claiming, stale-row recovery") is written for
+job — the (since-removed, DECISIONS #158) Granicus worker-table pattern
+("FOR UPDATE SKIP LOCKED claiming, stale-row recovery") was written for
 that different shape of problem. `document_uploads.status` still gives
 this a self-healing retry story (see below), just without a claim table.
 
@@ -369,7 +369,7 @@ async def upload_document(
             # a brand-new file_hash (see module docstring). If the prior
             # attempt failed, surface why in the response below rather
             # than silently discarding a reason that was already
-            # captured and stored (.claude/rules/crawler.md fail-loud
+            # captured and stored (.claude/rules/data.md fail-loud
             # spirit, applied at the user-facing layer).
             if status == "failed":
                 previous_failure_reason = failure_reason
@@ -436,7 +436,7 @@ def _process_upload_background(file_hash: str, raw_bytes: bytes, filename: str, 
         result = embed_and_insert_chunks(conn, client, chunks)
         if result.failed:
             # Fail loud rather than silently marking 'completed' with a
-            # partial corpus (.claude/rules/crawler.md) — e.g. a single
+            # partial corpus (.claude/rules/data.md) — e.g. a single
             # pathological paragraph over the embeddings API's 24,000-
             # char ceiling (app/embeddings/client.py's
             # EmbeddingInputTooLargeError) would land here. The

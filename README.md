@@ -1,102 +1,51 @@
-# Blaq Blob
+# Coalition Grant App
 
-*(Formerly "South St. Petersburg Infrastructure Intelligence," formerly "cba-rag-assistant" — see `DECISIONS.md` #9, #136.)*
+A grant-application tool for the Florida coalition, administered by the Florida Food Policy Council (FLFPC). Each organization keeps its own authorized documents in it. The app helps find funding opportunities, draft each application field from those documents with citations, route drafts through separate writer / reviewer / approver steps, and track what's been submitted and what's owed to funders after an award.
 
-A research tool that reads through local government meeting records, grant listings, and transcribed City Council audio so you can ask it a plain question and get back an answer with a real citation attached — not a guess, not a summary from memory, an answer traced back to the actual document or meeting it came from. Built for the South St. Petersburg Energy Coalition's Community Benefits Agreement negotiation with the City of St. Petersburg and Duke Energy Florida, and built to keep working for whoever runs this negotiation next, not just for the person who built it.
+**Status: early.** This repo was repurposed from a civic-records research tool (DECISIONS #158). Today it does the foundation only: upload a document and ask grounded, cited questions about it. Everything else on the list below is still to be built.
 
-Every non-trivial decision made while building this — including this rename — is recorded, numbered, and dated in [`DECISIONS.md`](DECISIONS.md). This README is the summary. If you're taking this over and want to know *why* something works the way it does, not just *that* it does, `DECISIONS.md` is the place to look — search it for the decision number cited next to any claim below.
+## What works today
 
-## What it does
+1. Upload a PDF, DOCX, or TXT (requires the shared upload key, see "Who can reach this").
+2. Ask a plain-language question. The system finds the most relevant passages, answers **only** from them, and cites each one.
+3. If the documents don't contain the answer, it says so instead of guessing.
 
-Ask a plain-language question about local grants, meeting agendas, or City Council business. The system:
+## What's planned (DECISIONS #158)
 
-1. Looks through the archive for the pieces of text most relevant to your question.
-2. Writes an answer using only what it actually found — never fills gaps from general internet knowledge.
-3. Attaches a citation to every claim: source URL, publish date, and a human-readable section label.
-4. If nothing relevant is in the archive, it says so plainly instead of guessing.
-
-You can also upload a document (PDF/DOCX/TXT — a CBA draft, a memo, anything) and ask questions about it within seconds, through the exact same citation-and-grounding process as everything else in the archive.
+| Phase | What | Why it matters |
+|---|---|---|
+| B | Logins with MFA (AWS Cognito), organizations, roles, time-limited partner access | Nothing sensitive goes in until this exists |
+| C | Each organization's documents walled off from the others, including in search and AI answers | Partners only see their own material by default |
+| D | Opportunity tracker, master-spreadsheet import/export, applications (LOI linked to full), word/character limits | The core grant workflow |
+| E | Field-by-field drafting with citations, review chain, comments, version history, audit log | Writer never approves their own work; every change is recorded |
+| F | Readiness checks, Word/package export, deadline reminders | A person submits; the app prepares |
 
 ## If you're taking this over, start here
 
-A few questions a successor would reasonably ask, answered plainly:
+**Why won't it just write from what it "knows"?** Because a grant application with an invented metric or a partner commitment nobody agreed to is worse than a blank field. It can get an organization disqualified or damage a funder relationship. The system only states facts it can point back to in an authorized document, and it flags gaps instead of filling them.
 
-**Why won't it just answer from what it "knows"?** Because in a negotiation, a confident-sounding wrong answer is worse than no answer — it can get repeated in a meeting and used against you. The system is built so it can *only* speak from documents it can point back to. If it can't find the answer in the archive, it tells you that instead of making something up. This rule has no exceptions, anywhere in the system.
+**Who can reach this?** The deployed instance has a public address. Uploads need a shared key (DECISIONS #144), but `/query` and `/sources` are open, and there are no individual logins yet. **Don't upload real partner documents (EINs, financials, banking details, anything non-public) to a deployed instance until Phase B ships.**
 
-**Why does it only pull from a fixed list of sources instead of searching everything?** An open-ended web crawler is a liability — it can get this project blocked from a site, or quietly pull in something unreliable without anyone noticing. The source list is closed on purpose (see `DECISIONS.md` #11); adding a new one is a deliberate decision, not something that happens by accident.
+**Does it submit applications or send email?** No, and the first version never will. It prepares packages for a designated person to submit.
 
-**Why did the City Council audio take so long to work right?** The hosted transcription service has a hard 25MB-per-file limit, and a full 3+ hour Council meeting recording is 150-230MB. Early on, full meetings just failed outright (a known, disclosed gap — `DECISIONS.md` #86, #116). That's fixed now: the system automatically splits long audio into safe-sized pieces at real audio boundaries (never a raw byte cut, which could corrupt a word mid-split) before sending each piece off, then stitches the transcript back together. Verified against a real 3-hour-plus meeting — see `DECISIONS.md` #130.
+**Does it store funder-portal passwords?** No. People log into funder portals themselves.
 
-**What does this cost to run, and who's watching that?** The database and app run in the cloud 24/7, and transcribing months of Council audio isn't free. There's a live monthly budget alert (see "Ongoing operations" below) that emails a warning at 50%, 90%, and 100% of a $100/month threshold — check that inbox. **Right now, actual spend is over that threshold** (≈$111/month) because the transcription worker temporarily needs a much larger, more expensive always-on container than originally sized (DECISIONS #138) — a cheaper, scheduled-task replacement is built and ready but blocked on an AWS-side issue, not a code problem (DECISIONS #139). See "Ongoing operations" below before assuming the alert firing is a false alarm. If the CBA work picks up and costs climb further, the threshold in `.env` is a one-line change plus a re-run of `infra/register_cost_alerts.sh`.
+**What does it cost?** Fargate + RDS run 24/7, and OpenAI is billed per call. There's a monthly AWS budget alert (`infra/register_cost_alerts.sh`, DECISIONS #133).
 
-**What breaks on its own, and how would I know?** A crawler will break the day its target website changes its layout — that's normal, expected, and it's designed to fail loudly (an error in the job's status, never a silent "nothing new found"). There's no dashboard for this yet; checking means looking at the crawler/transcription job tables directly. Named as a real gap below, not hidden.
-
-**Who else can reach this thing?** The live deployment has a public web address and the document-upload endpoint has no login requirement — a deliberate, disclosed shortcut, not an oversight. Don't upload a real, sensitive negotiation draft to the live instance until that's addressed.
+**Open security item:** a credential-looking value was found in AWS IAM tag metadata (DECISIONS #140). Rotating and removing it is still open.
 
 ## Architecture
 
 ```
-Sources (closed list, DECISIONS #11)
-  ├─ Tier 1 (static HTML crawlers): Legistar, stpete.org grants, Pinellas CF grants,
-  │  Pinellas HCD, SPHA, St. Pete Council votes
-  └─ Tier 1.5 (Granicus sub-pipeline): RSS-adjacent meeting discovery → human-resolved
-     MP3 URL → async transcription worker (whisper-1, duration-aware splitting for
-     long meetings, DECISIONS #130) → transcript
-       ↓
-Chunking (app/chunking/) — one Chunk shape, per-source-shape boundary logic
-  (agenda-item, h2-section, table-row, sentence-grouped transcript, uploaded-doc paragraph)
-       ↓
-Embeddings (app/embeddings/) — text-embedding-3-small, pgvector storage, idempotent
-  chunk_id pre-check before every paid API call
-       ↓
-Retrieval + grounding (app/rag/) — similarity threshold, near-dup dedup, token cap,
-  static system prompt, citations traced to real chunk rows
-       ↓
-FastAPI (app/api/) — /query, /health, /sources/{doc_id}, /documents/upload
-       ↓
-Static web UI (app/api/static/) — ask box, citations, upload form, served by the same app
+Upload (PDF/DOCX/TXT) → chunk (app/chunking/uploaded_document.py)
+      → embed + store in pgvector (app/embeddings/, idempotent per chunk)
+Question → retrieve (similarity threshold, near-duplicate removal, token cap; app/rag/retrieval.py)
+      → generate an answer only from those passages, with citations (app/rag/generation.py)
+FastAPI (app/api/): POST /query, GET /health, GET /sources/{doc_id}, POST /documents/upload
+Static UI (app/api/static/), served by the same app
 ```
 
-One Docker image (`Dockerfile`), role selected by `docker-compose.yml`'s `command:` per service (`api` / `worker`) — not separate builds (DECISIONS #8, #107). In production this runs on AWS Fargate (`api` and `worker` as separate always-on services) with Postgres on RDS — see "Running it live" below.
-
-A weekly automated recrawl (every Saturday, DECISIONS #126/#134) keeps the archive current without anyone needing to remember to run it by hand.
-
-## Why these sources, not others
-
-- **A named, finite source list, not "crawl municipal/county/state."** An open-ended civic-site crawler is an unbounded liability — rate-limit risk, silent scope creep, unverifiable provenance. Adding a source requires a new `DECISIONS.md` entry before any code (DECISIONS #11).
-- **Florida PSC** — deferred. A direct fetch returned near-empty content, likely JS-rendered or bot-blocked; needs a headless-browser investigation not done this cycle.
-- **GovTrack** — deferred. A direct fetch returned a confirmed HTTP 403. GovTrack is believed to offer a public data API — the right integration path, but unverified.
-- **Florida Statutes** — deliberately *not* a crawler target. Statutes change on a legislative-session cadence, not a meeting cadence, and the source is ColdFusion/session-URL-dependent — not a stable scheduled-crawl shape. Modeled instead as a separate, smaller, not-yet-built "fetch and cache by citation" capability, fitted to how the source actually changes rather than forced into the crawler pattern.
-- **Granicus (`stpete.granicus.com`)** — the one source that hit a real access wall mid-build: its robots.txt disallows this project's honest, non-spoofed User-Agent from the entire host (DECISIONS #77). Rather than drop the source or spoof a browser UA to route around a stated policy (`.claude/rules/crawler.md` treats a block as a stop signal, not an obstacle), meeting discovery was redesigned around a human (or, with explicit sign-off, an AI-driven real browser session — DECISIONS #115) resolving each meeting's real MP3 URL directly; the actually-automatable, actually-expensive half of the pipeline — download and transcribe — was never blocked and stays fully automated (DECISIONS #79-82).
-
-## Provenance and attribution model
-
-Every chunk in the archive — crawled, transcribed, or uploaded — carries, at minimum:
-
-- **Source URL** — the exact page or MediaPlayer.php URL the content came from (or `upload://<sha256>` for a live upload).
-- **Published/effective date** — the meeting date or the grant's posted date, not just when this system happened to fetch it.
-- **Retrieval timestamp** — when this system actually captured the content.
-
-Every citation returned by `/query` resolves to a real row via `GET /sources/{doc_id}`, traceable back through the same fields. This discipline exists because a civic-data tool with wrong or unattributed provenance is actively worse than no tool (`.claude/rules/crawler.md`).
-
-## Full-length City Council meetings: fixed, not a known gap anymore
-
-Earlier in this build, every full-length Council meeting (3+ hours, 150-230MB) failed to transcribe outright — the hosted transcription API has a hard 25MB single-request limit, and a real validation run (DECISIONS #116) confirmed this wasn't an edge case, it was nearly every real session. The system now automatically splits long audio into safe-sized pieces at real decoded-audio boundaries (never a raw byte cut of the compressed file, which risks corrupting a word mid-split) before transcribing each piece, then stitches the results back together — with a hard per-piece size check and automatic re-splitting if a piece still comes out too big.
-
-This was proven against a real full-length meeting, not a short test clip: a previously-failed 3.24-hour session was reprocessed end to end — split into 7 pieces, transcribed, stitched, chunked, embedded — for a real cost of about $1.17, and a real question about that meeting's actual content returned the correct, cited answer. Full details and the exact numbers: `DECISIONS.md` #130.
-
-**This fix worked locally on the first try, then still hit two more real problems once it actually reached production** — worth knowing if you're debugging something that looks similar. First, the fix never actually shipped to the live worker at all: a Docker layer was missing `ffmpeg` on the deployed image (DECISIONS #137). Once redeployed, the live worker OOM-crashed on real meeting files — decoding a multi-hour recording to raw audio for splitting takes far more memory than the original container had (DECISIONS #138). Both are fixed and real-verified against actual full-length meetings, not assumed. The 12-month Granicus backfill is unblocked by this fix.
-
-## Ongoing operations — what's automatic, what still needs a human
-
-- **Recrawl:** automatic, weekly, every Saturday 06:00 UTC (DECISIONS #126, #134) — pulls fresh Tier-1/1.5 content without anyone triggering it by hand.
-- **Cost alert:** automatic and live — a $100/month AWS budget alert emails warnings at 50%, 90%, and 100% of actual spend (DECISIONS #133). Change the threshold in `.env` and re-run `infra/register_cost_alerts.sh` if it needs adjusting. **It's currently over threshold for a known, disclosed reason** — see the next bullet.
-- **Granicus transcription worker — mid-transition, currently more expensive than it should be.** The always-on worker needed a large memory bump to survive decoding full-length meetings (DECISIONS #138, ≈$88/month on its own, most of it paying for capacity that sits idle between meetings). A cheaper replacement — the same work run as a scheduled task instead of an always-on service, ≈$6/month for the same job — is fully built, reviewed, and committed (DECISIONS #139), but the final activation step (`infra/register_granicus_worker_schedule.sh`) has been blocked for several real days by an AWS-side issue: EventBridge Scheduler won't accept a newly-created IAM role's trust policy in this account, for reasons that survived a thorough diagnostic pass (ruled out: policy content, SCPs, propagation timing, role/schedule naming) and four real days of elapsed time. This looks like it needs AWS Support, not more IAM tinkering. Until it clears, the old always-on worker (`south-st-pete-worker`) stays running as the safety net — nothing is broken, it's just paying more than it should. Retry the schedule script periodically; no code changes are needed once AWS accepts the role.
-- **Stale-claim recovery — only wired into the new (not-yet-live) scheduled path.** `recover_stale_claims` exists and is tested, and correctly self-heals a transcription job stuck mid-crash — but only in the new scheduled script (`scripts/run_granicus_worker_once.py`). The currently-running always-on worker (`app/granicus/run_worker.py`) does not call it. If that worker crashes and orphans a claimed job today, it needs a manual reset (see DECISIONS #137/#138 for the exact SQL) until the scheduled path goes live.
-- **Crawler health:** visible now, not just fail-loud. A crawler still breaks the moment its target site's layout changes, and it still fails loudly (an explicit error, never a silently-empty result — `.claude/rules/crawler.md`), but that's no longer only visible by querying Postgres directly: `GET /health/crawlers` reports the latest status (ok / failed / never-run) for all 13 Tier-1 source segments plus the Granicus transcription pipeline, and the web UI's "Crawler health" panel renders it — a failed or never-run source shows visibly differently from a healthy one, no fine print required (DECISIONS #147).
-- **pgvector maintenance:** the vector search index benefits from periodic maintenance as the archive grows, especially once a full year of transcripts has landed.
-- **Upload access:** `POST /documents/upload` has no login requirement — a known, deliberate shortcut, not an oversight. Don't upload an actually-sensitive negotiation document to the live, publicly-reachable instance until that's addressed.
-- **Secrets hygiene:** if you're the one running commands against `.env` or any file with a live API key/password in it, read `.claude/rules/secrets.md` first — two real key exposures happened during this build from printing a secrets file without shaping the output. A third, differently-shaped exposure also happened (DECISIONS #140): a live-credential-looking value stored in plain AWS IAM tag metadata, found by a routine, unrelated diagnostic command — not a reading mistake at all, but a credential placed somewhere that was never a secrets store to begin with. Rotating and removing that one is still an open action item. Either way, the fix is a habit, not a one-time patch.
+Every chunk carries its source, its own date where known, and when it was ingested (`app/provenance.py`). Every citation resolves to a real row via `GET /sources/{doc_id}`.
 
 ## Running it locally
 
@@ -104,12 +53,14 @@ This was proven against a real full-length meeting, not a short test clip: a pre
 docker-compose up --build
 ```
 
-Brings up Postgres+pgvector, the API (port 8000), and the transcription worker with one command. Static UI served at `http://localhost:8000/`.
+Postgres + pgvector and the API (port 8000). UI at `http://localhost:8000/`. Copy `.env.example` to `.env` and fill it in first.
+
+Tests: `pip install -r requirements.txt -r requirements-dev.txt`, start the `db` service, then `pytest`.
 
 ## Running it live
 
-The production deployment runs on AWS Fargate — an `api` service, a `worker` service (currently always-on; see "Ongoing operations" above for its pending replacement by a scheduled task), and a managed Postgres (RDS) database. `infra/DEPLOY_NEXT_STEPS.md` is the operational runbook: how to re-deploy after a code change, how to load newly-crawled content into the live database, and the exact commands for both. The live app's public address changes if a task restarts (it isn't a fixed URL yet — a real future improvement, not a blocker); the runbook explains how to look it up.
+AWS Fargate (`api` service) + RDS. Rebuild and push with `infra/build_push_app_image.sh`, then register the task definition with `infra/register_app_taskdefs.sh` and update the ECS service. Read `.claude/rules/secrets.md` before running any command against `.env`.
 
 ## Stack
 
-Python 3.12, FastAPI, PostgreSQL + pgvector, Docker/docker-compose (local) and AWS Fargate/ECS + RDS (deploy target, DECISIONS #1). OpenAI for embeddings (`text-embedding-3-small`), generation (`gpt-4o-mini`), and transcription (`whisper-1`) — one provider, one account, one bill (DECISIONS #13).
+Python 3.12, FastAPI, PostgreSQL + pgvector, Docker, AWS Fargate/ECS + RDS (DECISIONS #1). OpenAI `text-embedding-3-small` and `gpt-4o-mini` (DECISIONS #13). Cognito for auth (planned, DECISIONS #158).

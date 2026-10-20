@@ -1781,3 +1781,40 @@ Not verified: transcription through the manual-trigger path. The first real pend
 
 Why: the always-on worker was the dominant known Fargate cost, and the scheduler path stayed blocked. Amber accepted the tradeoff of manual triggering and the unverified transcription path in exchange for stopping the cost.
 Date: 2026-10-05
+
+## #158 — Repurpose this repo in place into the Coalition Grant App; Phase A strips the civic-records tool to its reusable core
+
+Decision: Amber directed, in conversation on 2026-10-19, that this repo become the multi-organization grant application tool described in the "Coalition Grant App — Requirements Questionnaire" (Oct. 6, 2026, Erica Hall's completed draft, FLFPC as administrator). She chose to repurpose **in place** over a fork, knowing that retires the South St. Petersburg civic-records tool. She also chose AWS Cognito for auth and MFA, and set the scope for now to Phase A plus a locally-kept design plan for B–F, with no B–F code until she signs off.
+
+Supersedes: #11 (closed source list) and #12 (Granicus 12-month bound), since neither source exists anymore. The 9-day schedule (#9) and PLAN.md's interview-defense framing are retired, and PLAN.md is removed (still in git history). Still binding: #1 (Fargate), #2 (no K8s/IaC), #8 (one image), #13 (OpenAI), #131/#135 (secrets rules), #136 (built for a successor).
+
+Phase A, this entry (code only):
+- Dropped: `app/crawlers/`, `app/granicus/`, the 8 source-specific chunkers, `app/db/crawl_runs.py`, `GET /health/crawlers` plus its UI panel and schemas, all of `scripts/`, the crawler/granicus tests and fixtures, every worker/scheduler/migrate/diagnostic file in `infra/`, `infra/DEPLOY_NEXT_STEPS.md` (stale Phase K runbook), `DEMO.md`, `PLAN.md`, the `worker` compose service, ffmpeg in the image, `pydub`/`requests`/`beautifulsoup4`/`lxml`/`responses` deps, the `crawler`/`crawler-review` agents, and `.claude/rules/crawler.md`.
+- Kept: `app/db`, `app/embeddings`, `app/rag`, `app/chunking/base.py` + `uploaded_document.py`, `POST /documents/upload`, `/query`, `/health`, `/sources/{doc_id}`, the static UI, Docker/compose, the `api` deploy scripts, and the cost alerts.
+- Moved: `Attribution` from `app/crawlers/base.py` to `app/provenance.py`. The fail-loud and source-attribution rules moved from `crawler.md` into `.claude/rules/data.md`, since they apply to uploads and imports just as much.
+- Fixed in passing: `infra/register_app_taskdefs.sh` looped over `api worker`; with the worker template gone it would have failed on the second pass. It now registers `api` only.
+- Verified: `pytest` passes 121 tests, 0 skipped, against the real local pgvector Postgres.
+
+Planned phases (detail in the local design plan, which gets its own adversarial review before any B code):
+- B: Cognito auth + MFA, organizations, users, roles, time-limited per-application access.
+- C: Per-organization document vault, with retrieval isolated per org.
+- D: Opportunities, master-spreadsheet import/export, applications (LOI ↔ full), field limits.
+- E: Cited field-by-field drafting, review/approval chain, comments, versions, audit log.
+- F: Readiness checks, Word/package export, reminders.
+
+Known residuals, deliberately not done in Phase A:
+- `app/rag/generation.py`'s system prompt and grounding stopword lists are still worded for St. Petersburg civic records. Retargeting them changes generation behavior, so it belongs in Phase C/E with its own `rag-review` pass, not in a strip-down.
+- The `chunks` table still has transcript-era nullable columns (`start_seconds`, `end_seconds`). Dropping columns is a live-schema change, so it's deferred to Phase C's schema work.
+- Historical comments in kept code still cite deleted files (`scripts/…`, `PLAN.md Phase X`). They resolve in git history and are left alone rather than churning working code.
+
+AWS state, deliberately NOT touched (each needs Amber's explicit sign-off, per #156/#157 precedent):
+- The deployed `south-st-pete-api` still runs the pre-#158 image until rebuilt and redeployed.
+- RDS still holds the civic-records corpus in `chunks`, plus the orphaned `crawl_runs` and `granicus_transcription_jobs` tables.
+- `south-st-pete-worker` (desiredCount 0 per #157), the granicus-worker task family, and the weekly recrawl schedule from #126/#134 may still exist. Their live state was not re-read this session. If the recrawl schedule is live, it keeps running the old crawler image and spending money.
+- The `south-st-pete-app-migrate` ECR repo and its task definition.
+- #140's credential in IAM tag metadata is still open, unrelated to this change.
+
+Dropped, not moved: the scraping-etiquette rules (respect robots.txt, rate-limit, honest User-Agent, treat a block as a stop signal) went away with `crawler.md`. If Phase D adds any outbound fetching of funder sites, restore them from git history as a binding rule first.
+
+Why: Amber's direction. The grounded-RAG core (threshold, dedup, cite-or-refuse) is exactly what questionnaire 5.4 asks of the drafting engine, so keeping it beats starting over. Everything source-specific was dead weight for the new product.
+Date: 2026-10-19

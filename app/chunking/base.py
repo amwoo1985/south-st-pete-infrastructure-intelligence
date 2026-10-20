@@ -5,7 +5,7 @@ and — later — Granicus meeting transcripts).
 Binding rules this module exists to enforce (see .claude/rules/rag.md,
 .claude/rules/data.md, PLAN.md Phase D, DECISIONS #58):
 
-- Every Chunk carries full attribution passthrough (app.crawlers.base's
+- Every Chunk carries full attribution passthrough (app.provenance's
   Attribution) — chunking never re-derives or drops source_url/
   retrieval_timestamp/published_date.
 - Chunk IDs are stable and deterministic, derived from source identity
@@ -25,7 +25,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
-from app.crawlers.base import Attribution
+from app.provenance import Attribution
 
 # Unit separator (ASCII 0x1F) — not a character that could plausibly appear
 # in a URL, heading, or row key — joins chunk-identity parts before hashing
@@ -80,7 +80,7 @@ class Chunk:
       .claude/rules/data.md's nullable-over-sentinel rule — an empty
       string here would be a magic "no label" sentinel).
     - attribution: full passthrough of the source item's Attribution
-      (app.crawlers.base) — source_url, retrieval_timestamp,
+      (app.provenance) — source_url, retrieval_timestamp,
       published_date. Chunking never re-derives or drops this.
     - start_seconds / end_seconds: nullable timestamp-range fields, unused
       by every current source (no crawler in this codebase produces

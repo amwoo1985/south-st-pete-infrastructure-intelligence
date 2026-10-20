@@ -37,7 +37,7 @@ import psycopg
 #                           Content-Type header.
 #   status                  <- 'processing' | 'completed' | 'failed'
 #   failure_reason           <- NULL unless status='failed'; never left
-#                           silently stuck (.claude/rules/crawler.md
+#                           silently stuck (.claude/rules/data.md
 #                           fail-loud, applied to this pipeline).
 #   chunk_count               <- NULL until status='completed'
 #   uploaded_at                <- when this file_hash was FIRST recorded

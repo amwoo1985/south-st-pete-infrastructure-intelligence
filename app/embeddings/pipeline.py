@@ -278,7 +278,7 @@ def embed_and_insert_chunks(
     """Batch version: processes every chunk, continuing past individual
     failures (logged, counted) rather than letting one bad chunk abort an
     entire corpus run — but never silently drops a failure, per
-    .claude/rules/crawler.md's fail-loud spirit applied at the item level:
+    .claude/rules/data.md's fail-loud spirit applied at the item level:
     a non-zero `failed` count in the returned PipelineResult, plus each
     failed chunk_id, makes failures visible rather than looking like
     "nothing new happened."
@@ -308,7 +308,7 @@ def embed_and_insert_chunks(
             # in this batch would fail the same way for the same reason,
             # so counting each as an independent "failed chunk" would
             # misrepresent "the whole run broke" as "N chunks each
-            # happened to be bad" (.claude/rules/crawler.md's fail-loud
+            # happened to be bad" (.claude/rules/data.md's fail-loud
             # spirit: a systemic failure must not look like ordinary,
             # expected per-item noise). Abort the batch loudly instead.
             logger.error(
