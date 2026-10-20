@@ -1,8 +1,8 @@
-# South St. Petersburg Infrastructure Intelligence
+# Blaq Blob
 
-(Formerly "cba-rag-assistant" — renamed per DECISIONS #9.)
+(Formerly "cba-rag-assistant," then "South St. Petersburg Infrastructure Intelligence" — renamed per DECISIONS #9, then DECISIONS #136.)
 
-A RAG tool over local government meeting records, grants, and (later) statutes — built for Amber Woods's real, ongoing civic work chairing the South St. Petersburg Energy Coalition and its Community Benefits Agreement negotiation with the City of St. Petersburg, residents, and Duke Energy Florida. This is a real operational tool, not a portfolio demo, though it also serves as evidence for a CodeBoxx-partner job application.
+A RAG tool over local government meeting records, grants, and (later) statutes — built for Amber Woods's real, ongoing civic work chairing the South St. Petersburg Energy Coalition and its Community Benefits Agreement negotiation with the City of St. Petersburg, residents, and Duke Energy Florida. This is a real operational tool, not a portfolio demo — built to outlast Amber's own day-to-day involvement, so whoever she hands it to next can run it without her walking them through it live (DECISIONS #136).
 
 ## Two independent tracks — do not conflate
 
@@ -13,7 +13,9 @@ Conflating these two was the exact ambiguity that cost ~2 months on R-EX at Vide
 
 ## Workflow
 
-Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra`, `crawler` for building; `rag-review`, `deploy-review`, `crawler-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
+Entry point for any build, review, or design-decision task: invoke the `cba-rag` orchestrator agent. It discovers conventions here, delegates to specialists — `rag-pipeline`, `api-layer`, `deploy-infra`, `crawler` for building; `rag-review`, `api-review`, `deploy-review`, `crawler-review` for adversarial review — synthesizes their output, and owns `DECISIONS.md`.
+
+`.claude/rules/secrets.md` governs any command that touches `.env` or another file carrying a live credential — binding on every specialist and on direct shell commands in this session alike (see DECISIONS #131, #135).
 
 Every non-trivial design decision gets a numbered `DECISIONS.md` entry before or immediately after it's made, never batched at the end.
 
@@ -40,13 +42,13 @@ This mirrors the agentic workflow used to build R-EX at VideoAmp (orchestrator +
 
 ## Plan
 
-See `PLAN.md` for the phase breakdown, day-by-day schedule, checkpoint/fallback order, and interview-defense notes.
+See `PLAN.md` for the phase breakdown, day-by-day schedule, and checkpoint/fallback order. (PLAN.md's original "interview-defense" framing is historical — see DECISIONS #136; README's handoff-notes section is the live reference now.)
 
 ## Hard constraints (do not relitigate without a new DECISIONS.md entry)
 
 - No Kubernetes, no Terraform/IaC this cycle (DECISIONS #2).
 - One AWS deploy target (Fargate), decided once (DECISIONS #1).
-- Every retrieval/generation path must be defensible live in an interview — no undocumented magic.
+- Every retrieval/generation path must be explainable in plain language to a non-engineer successor — no undocumented magic.
 - Crawler source list is closed (DECISIONS #11) — no silent scope expansion.
 - Granicus backfill is hard-bounded to 12 months (DECISIONS #12).
 

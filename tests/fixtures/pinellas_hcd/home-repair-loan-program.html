@@ -1,0 +1,3532 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <!-- Google Tag Manager -->
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      'department': undefined,
+      'topic': undefined
+    });
+    </script>
+
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WR6467J');</script>
+    <!-- End Google Tag Manager -->
+    <!-- Hotjar Tracking Code for Pinellas Main Website -->
+    <script>
+        (function(h,o,t,j,a,r){
+            h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+            h._hjSettings={hjid:1948233,hjsv:6};
+            a=o.getElementsByTagName('head')[0];
+            r=o.createElement('script');r.async=1;
+            r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+            a.appendChild(r);
+        })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+    </script>
+    <!-- Required meta tags -->
+    <meta charset="UTF-8">
+<script>
+//----------------------------------------------------------
+//------ JAVASCRIPT HOOK FUNCTIONS FOR GRAVITY FORMS -------
+//----------------------------------------------------------
+
+if ( ! gform ) {
+	document.addEventListener( 'gform_main_scripts_loaded', function() { gform.scriptsLoaded = true; } );
+	document.addEventListener( 'gform/theme/scripts_loaded', function() { gform.themeScriptsLoaded = true; } );
+	window.addEventListener( 'DOMContentLoaded', function() { gform.domLoaded = true; } );
+
+	var gform = {
+		domLoaded: false,
+		scriptsLoaded: false,
+		themeScriptsLoaded: false,
+		isFormEditor: () => typeof InitializeEditor === 'function',
+
+		/**
+		 * @deprecated 2.9 the use of initializeOnLoaded in the form editor context is deprecated.
+		 * @remove-in 4.0 this function will not check for gform.isFormEditor().
+		 */
+		callIfLoaded: function ( fn ) {
+			if ( gform.domLoaded && gform.scriptsLoaded && ( gform.themeScriptsLoaded || gform.isFormEditor() ) ) {
+				if ( gform.isFormEditor() ) {
+					console.warn( 'The use of gform.initializeOnLoaded() is deprecated in the form editor context and will be removed in Gravity Forms 3.1.' );
+				}
+				fn();
+				return true;
+			}
+			return false;
+		},
+
+		/**
+		 * Call a function when all scripts are loaded
+		 *
+		 * @param function fn the callback function to call when all scripts are loaded
+		 *
+		 * @returns void
+		 */
+		initializeOnLoaded: function( fn ) {
+			if ( ! gform.callIfLoaded( fn ) ) {
+				document.addEventListener( 'gform_main_scripts_loaded', () => { gform.scriptsLoaded = true; gform.callIfLoaded( fn ); } );
+				document.addEventListener( 'gform/theme/scripts_loaded', () => { gform.themeScriptsLoaded = true; gform.callIfLoaded( fn ); } );
+				window.addEventListener( 'DOMContentLoaded', () => { gform.domLoaded = true; gform.callIfLoaded( fn ); } );
+			}
+		},
+
+		hooks: { action: {}, filter: {} },
+		addAction: function( action, callable, priority, tag ) {
+			gform.addHook( 'action', action, callable, priority, tag );
+		},
+		addFilter: function( action, callable, priority, tag ) {
+			gform.addHook( 'filter', action, callable, priority, tag );
+		},
+		doAction: function( action ) {
+			gform.doHook( 'action', action, arguments );
+		},
+		applyFilters: function( action ) {
+			return gform.doHook( 'filter', action, arguments );
+		},
+		removeAction: function( action, tag ) {
+			gform.removeHook( 'action', action, tag );
+		},
+		removeFilter: function( action, priority, tag ) {
+			gform.removeHook( 'filter', action, priority, tag );
+		},
+		addHook: function( hookType, action, callable, priority, tag ) {
+			if ( undefined == gform.hooks[hookType][action] ) {
+				gform.hooks[hookType][action] = [];
+			}
+			var hooks = gform.hooks[hookType][action];
+			if ( undefined == tag ) {
+				tag = action + '_' + hooks.length;
+			}
+			if( priority == undefined ){
+				priority = 10;
+			}
+
+			gform.hooks[hookType][action].push( { tag:tag, callable:callable, priority:priority } );
+		},
+		doHook: function( hookType, action, args ) {
+
+			// splice args from object into array and remove first index which is the hook name
+			args = Array.prototype.slice.call(args, 1);
+
+			if ( undefined != gform.hooks[hookType][action] ) {
+				var hooks = gform.hooks[hookType][action], hook;
+				//sort by priority
+				hooks.sort(function(a,b){return a["priority"]-b["priority"]});
+
+				hooks.forEach( function( hookItem ) {
+					hook = hookItem.callable;
+
+					if(typeof hook != 'function')
+						hook = window[hook];
+					if ( 'action' == hookType ) {
+						hook.apply(null, args);
+					} else {
+						args[0] = hook.apply(null, args);
+					}
+				} );
+			}
+			if ( 'filter'==hookType ) {
+				return args[0];
+			}
+		},
+		removeHook: function( hookType, action, priority, tag ) {
+			if ( undefined != gform.hooks[hookType][action] ) {
+				var hooks = gform.hooks[hookType][action];
+				hooks = hooks.filter( function(hook, index, arr) {
+					var removeHook = (undefined==tag||tag==hook.tag) && (undefined==priority||priority==hook.priority);
+					return !removeHook;
+				} );
+				gform.hooks[hookType][action] = hooks;
+			}
+		}
+	};
+}
+</script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- wp_head begin -->
+    <meta name='robots' content='index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' />
+
+	<!-- This site is optimized with the Yoast SEO plugin v28.2 - https://yoast.com/product/yoast-seo-wordpress/ -->
+	<title>Home Repair &amp; Independent Living Programs - Pinellas County</title>
+	<link rel="canonical" href="https://pinellas.gov/programs/home-repair-loan-program/" />
+	<meta property="og:locale" content="en_US" />
+	<meta property="og:type" content="article" />
+	<meta property="og:title" content="Home Repair &amp; Independent Living Programs - Pinellas County" />
+	<meta property="og:description" content="En Español UPDATE (5/4/2026): The County’s Home Repair Program has CLOSED to new applications as of 5 p.m. 5/4/2026. Fully forgivable loan..." />
+	<meta property="og:url" content="https://pinellas.gov/programs/home-repair-loan-program/" />
+	<meta property="og:site_name" content="Pinellas County" />
+	<meta property="article:modified_time" content="2026-05-04T22:12:28+00:00" />
+	<meta property="og:image" content="https://pinellas.gov/wp-content/uploads/2021/06/Equal-Housing-Logo.gif" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:label1" content="Est. reading time" />
+	<meta name="twitter:data1" content="2 minutes" />
+	<meta name="twitter:label2" content="Written by" />
+	<meta name="twitter:data2" content="bgajan" />
+	<script type="application/ld+json" class="yoast-schema-graph">{"@context":"https:\/\/schema.org","@graph":[{"@type":["WebPage","ItemPage"],"@id":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/","url":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/","name":"Home Repair & Independent Living Programs - Pinellas County","isPartOf":{"@id":"https:\/\/pinellas.gov\/#website"},"primaryImageOfPage":{"@id":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/#primaryimage"},"image":{"@id":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/#primaryimage"},"thumbnailUrl":"https:\/\/pinellas.gov\/wp-content\/uploads\/2021\/06\/Equal-Housing-Logo.gif","datePublished":"2022-10-18T16:18:12+00:00","dateModified":"2026-05-04T22:12:28+00:00","breadcrumb":{"@id":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/#breadcrumb"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/"]}]},{"@type":"ImageObject","inLanguage":"en-US","@id":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/#primaryimage","url":"https:\/\/pinellas.gov\/wp-content\/uploads\/2021\/06\/Equal-Housing-Logo.gif","contentUrl":"https:\/\/pinellas.gov\/wp-content\/uploads\/2021\/06\/Equal-Housing-Logo.gif","width":283,"height":302,"caption":"Equal Housing Logo"},{"@type":"BreadcrumbList","@id":"https:\/\/pinellas.gov\/programs\/home-repair-loan-program\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/pinellas.gov\/"},{"@type":"ListItem","position":2,"name":"Programs","item":"https:\/\/pinellas.gov\/programs\/"},{"@type":"ListItem","position":3,"name":"Home Repair &#038; Independent Living Programs"}]},{"@type":"WebSite","@id":"https:\/\/pinellas.gov\/#website","url":"https:\/\/pinellas.gov\/","name":"Pinellas County","description":"Official Web Site of Pinellas County, Florida","publisher":{"@id":"https:\/\/pinellas.gov\/#organization"},"potentialAction":[{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https:\/\/pinellas.gov\/?s={search_term_string}"},"query-input":{"@type":"PropertyValueSpecification","valueRequired":true,"valueName":"search_term_string"}}],"inLanguage":"en-US"},{"@type":"Organization","@id":"https:\/\/pinellas.gov\/#organization","name":"Pinellas County Government","url":"https:\/\/pinellas.gov\/","logo":{"@type":"ImageObject","inLanguage":"en-US","@id":"https:\/\/pinellas.gov\/#\/schema\/logo\/image\/","url":"https:\/\/pinellas.gov\/wp-content\/uploads\/2021\/07\/logo-blue@2x.png","contentUrl":"https:\/\/pinellas.gov\/wp-content\/uploads\/2021\/07\/logo-blue@2x.png","width":512,"height":326,"caption":"Pinellas County Government"},"image":{"@id":"https:\/\/pinellas.gov\/#\/schema\/logo\/image\/"}}]}</script>
+	<!-- / Yoast SEO plugin. -->
+
+
+<link rel='dns-prefetch' href='//kit.fontawesome.com' />
+<link rel='dns-prefetch' href='//www.googletagmanager.com' />
+<link rel="alternate" type="text/calendar" title="Pinellas County &raquo; iCal Feed" href="https://pinellas.gov/events/?ical=1" />
+		<style>
+			.lazyload,
+			.lazyloading {
+				max-width: 100%;
+			}
+		</style>
+		<style id="wp-img-auto-sizes-contain-inline-css">
+img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */
+</style>
+<link rel='stylesheet' id='structured-content-frontend-css' href='https://pinellas.gov/wp-content/plugins/structured-content/dist/blocks.style.build.css?ver=1.7.0' media='all' />
+<link rel='stylesheet' id='tribe-events-pro-mini-calendar-block-styles-css' href='https://pinellas.gov/wp-content/plugins/events-calendar-pro/build/css/tribe-events-pro-mini-calendar-block.css?ver=7.8.0' media='all' />
+<style id="classic-theme-styles-inline-css">
+/**
+ * These rules are needed for backwards compatibility.
+ * They should match the button element rules in the base theme.json file.
+ */
+.wp-block-button__link {
+	color: #ffffff;
+	background-color: #32373c;
+	border-radius: 9999px; /* 100% causes an oval, but any explicit but really high value retains the pill shape. */
+
+	/* This needs a low specificity so it won't override the rules from the button element if defined in theme.json. */
+	box-shadow: none;
+	text-decoration: none;
+
+	/* The extra 2px are added to size solids the same as the outline versions.*/
+	padding: calc(0.667em + 2px) calc(1.333em + 2px);
+
+	font-size: 1.125em;
+}
+
+.wp-block-file__button {
+	background: #32373c;
+	color: #ffffff;
+	text-decoration: none;
+}
+
+/*# sourceURL=/wp-includes/css/classic-themes.css */
+</style>
+<style id="wp-block-accordion-inline-css">
+.wp-block-accordion {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/accordion/style.css */
+</style>
+<style id="wp-block-accordion-item-inline-css">
+.wp-block-accordion-item.is-open > .wp-block-accordion-heading .wp-block-accordion-heading__toggle-icon {
+  transform: rotate(45deg);
+}
+.wp-block-accordion-item {
+  /* Add transitions only for users who do not prefer reduced motion */
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wp-block-accordion-item {
+    transition: grid-template-rows 0.3s ease-out;
+  }
+  .wp-block-accordion-item > .wp-block-accordion-heading .wp-block-accordion-heading__toggle-icon {
+    transition: transform 0.2s ease-in-out;
+  }
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/accordion-item/style.css */
+</style>
+<style id="wp-block-archives-inline-css">
+.wp-block-archives {
+  box-sizing: border-box;
+}
+
+.wp-block-archives-dropdown label {
+  display: block;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/archives/style.css */
+</style>
+<style id="wp-block-avatar-inline-css">
+.wp-block-avatar {
+  box-sizing: border-box;
+  line-height: 0;
+}
+.wp-block-avatar img {
+  box-sizing: border-box;
+}
+.wp-block-avatar.aligncenter {
+  text-align: center;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/avatar/style.css */
+</style>
+<style id="wp-block-breadcrumbs-inline-css">
+.wp-block-breadcrumbs {
+  box-sizing: border-box;
+}
+.wp-block-breadcrumbs ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.wp-block-breadcrumbs li {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.wp-block-breadcrumbs li:not(:last-child)::after {
+  content: var(--separator, "/");
+  margin: 0 0.5em;
+  opacity: 0.7;
+}
+.wp-block-breadcrumbs span {
+  color: inherit;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/breadcrumbs/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-button-css' href='https://pinellas.gov/wp-includes/blocks/button/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-calendar-inline-css">
+/**
+ * Colors
+ */
+.wp-block-calendar {
+  text-align: center;
+}
+.wp-block-calendar th,
+.wp-block-calendar td {
+  padding: 0.25em;
+  border: 1px solid;
+}
+.wp-block-calendar th {
+  font-weight: 400;
+}
+.wp-block-calendar caption {
+  background-color: inherit;
+}
+.wp-block-calendar table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.wp-block-calendar table.has-background th {
+  background-color: inherit;
+}
+.wp-block-calendar table.has-text-color th {
+  color: inherit;
+}
+.wp-block-calendar :where(table:not(.has-text-color)) {
+  color: #40464d;
+}
+.wp-block-calendar :where(table:not(.has-text-color)) th,
+.wp-block-calendar :where(table:not(.has-text-color)) td {
+  border-color: #ddd;
+}
+
+:where(.wp-block-calendar table:not(.has-background) th) {
+  background: #ddd;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/calendar/style.css */
+</style>
+<style id="wp-block-categories-inline-css">
+.wp-block-categories {
+  box-sizing: border-box;
+}
+.wp-block-categories.alignleft {
+  /*rtl:ignore*/
+  margin-right: 2em;
+}
+.wp-block-categories.alignright {
+  /*rtl:ignore*/
+  margin-left: 2em;
+}
+.wp-block-categories {
+  /* Only apply the text align on dropdowns, not lists. */
+}
+.wp-block-categories.wp-block-categories-dropdown.aligncenter {
+  text-align: center;
+}
+.wp-block-categories .wp-block-categories__label:not(.screen-reader-text) {
+  width: 100%;
+  display: block;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/categories/style.css */
+</style>
+<style id="wp-block-comment-author-name-inline-css">
+.wp-block-comment-author-name {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comment-author-name/style.css */
+</style>
+<style id="wp-block-comment-content-inline-css">
+.comment-awaiting-moderation {
+  display: block;
+  font-size: 0.875em;
+  line-height: 1.5;
+}
+
+.wp-block-comment-content {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comment-content/style.css */
+</style>
+<style id="wp-block-comment-date-inline-css">
+.wp-block-comment-date {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comment-date/style.css */
+</style>
+<style id="wp-block-comment-edit-link-inline-css">
+.wp-block-comment-edit-link {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comment-edit-link/style.css */
+</style>
+<style id="wp-block-comment-reply-link-inline-css">
+.wp-block-comment-reply-link {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comment-reply-link/style.css */
+</style>
+<style id="wp-block-comment-template-inline-css">
+.wp-block-comment-template {
+  box-sizing: border-box;
+  margin-bottom: 0;
+  max-width: 100%;
+  list-style: none;
+  padding: 0;
+}
+.wp-block-comment-template li {
+  clear: both;
+}
+.wp-block-comment-template ol {
+  margin-bottom: 0;
+  max-width: 100%;
+  list-style: none;
+  padding-left: 2rem;
+}
+.wp-block-comment-template.alignleft {
+  float: left;
+}
+.wp-block-comment-template.aligncenter {
+  margin-left: auto;
+  margin-right: auto;
+  width: fit-content;
+}
+.wp-block-comment-template.alignright {
+  float: right;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comment-template/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-comments-css' href='https://pinellas.gov/wp-includes/blocks/comments/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-comments-pagination-inline-css">
+.wp-block-comments-pagination > .wp-block-comments-pagination-next,
+.wp-block-comments-pagination > .wp-block-comments-pagination-previous,
+.wp-block-comments-pagination > .wp-block-comments-pagination-numbers {
+  font-size: inherit;
+}
+.wp-block-comments-pagination .wp-block-comments-pagination-previous-arrow {
+  margin-right: 1ch;
+  display: inline-block;
+}
+.wp-block-comments-pagination .wp-block-comments-pagination-previous-arrow:not(.is-arrow-chevron) {
+  transform: scaleX(1) /*rtl:scaleX(-1);*/;
+}
+.wp-block-comments-pagination .wp-block-comments-pagination-next-arrow {
+  margin-left: 1ch;
+  display: inline-block;
+}
+.wp-block-comments-pagination .wp-block-comments-pagination-next-arrow:not(.is-arrow-chevron) {
+  transform: scaleX(1) /*rtl:scaleX(-1);*/;
+}
+.wp-block-comments-pagination.aligncenter {
+  justify-content: center;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/comments-pagination/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-cover-css' href='https://pinellas.gov/wp-includes/blocks/cover/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-details-inline-css">
+.wp-block-details {
+  box-sizing: border-box;
+}
+
+.wp-block-details summary {
+  cursor: pointer;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/details/style.css */
+</style>
+<style id="wp-block-file-inline-css">
+/**
+ * Colors
+ */
+.wp-block-file {
+  box-sizing: border-box;
+}
+.wp-block-file:not(.wp-element-button) {
+  font-size: 0.8em;
+}
+.wp-block-file.aligncenter {
+  text-align: center;
+}
+.wp-block-file.alignright {
+  /*rtl:ignore*/
+  text-align: right;
+}
+.wp-block-file * + .wp-block-file__button {
+  margin-left: 0.75em;
+}
+
+:where(.wp-block-file) {
+  margin-bottom: 1.5em;
+}
+
+.wp-block-file__embed {
+  margin-bottom: 1em;
+}
+
+:where(.wp-block-file__button) {
+  border-radius: 2em;
+  padding: 0.5em 1em;
+  display: inline-block;
+}
+:where(.wp-block-file__button):where(a):hover, :where(.wp-block-file__button):where(a):visited, :where(.wp-block-file__button):where(a):focus, :where(.wp-block-file__button):where(a):active {
+  box-shadow: none;
+  color: #fff;
+  opacity: 0.85;
+  text-decoration: none;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/file/style.css */
+</style>
+<style id="wp-block-footnotes-inline-css">
+.editor-styles-wrapper,
+.entry-content {
+  counter-reset: footnotes;
+}
+
+a[data-fn].fn {
+  vertical-align: super;
+  font-size: smaller;
+  counter-increment: footnotes;
+  display: inline-flex;
+  text-decoration: none;
+  text-indent: -9999999px;
+}
+
+a[data-fn].fn::after {
+  content: "[" counter(footnotes) "]";
+  text-indent: 0;
+  float: left;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/footnotes/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-gallery-css' href='https://pinellas.gov/wp-includes/blocks/gallery/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-heading-inline-css">
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+h1:where(.wp-block-heading).has-background,
+h2:where(.wp-block-heading).has-background,
+h3:where(.wp-block-heading).has-background,
+h4:where(.wp-block-heading).has-background,
+h5:where(.wp-block-heading).has-background,
+h6:where(.wp-block-heading).has-background {
+  padding: 1.25em 2.375em;
+}
+h1.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]), h1.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),
+h2.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),
+h2.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),
+h3.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),
+h3.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),
+h4.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),
+h4.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),
+h5.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),
+h5.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),
+h6.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),
+h6.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]) {
+  rotate: 180deg;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/heading/style.css */
+</style>
+<style id="wp-block-icon-inline-css">
+/**
+ * Editor and frontend styles for the Icon Block.
+ */
+/* Icon Block styles. */
+.wp-block-icon {
+  line-height: 0;
+}
+.wp-block-icon.aligncenter {
+  display: flex;
+  justify-content: center;
+}
+.wp-block-icon svg {
+  box-sizing: border-box;
+  fill: currentColor;
+}
+
+:where(.wp-block-icon) svg {
+  width: 100%;
+  height: 100%;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/icon/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-image-css' href='https://pinellas.gov/wp-includes/blocks/image/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-latest-comments-inline-css">
+ol.wp-block-latest-comments {
+  margin-left: 0;
+  box-sizing: border-box;
+}
+
+:where(.wp-block-latest-comments:not([style*=line-height] .wp-block-latest-comments__comment)) {
+  line-height: 1.1;
+}
+
+:where(.wp-block-latest-comments:not([style*=line-height] .wp-block-latest-comments__comment-excerpt p)) {
+  line-height: 1.8;
+}
+
+.has-dates :where(.wp-block-latest-comments:not([style*=line-height])),
+.has-excerpts :where(.wp-block-latest-comments:not([style*=line-height])) {
+  line-height: 1.5;
+}
+
+.wp-block-latest-comments .wp-block-latest-comments {
+  padding-left: 0;
+}
+
+.wp-block-latest-comments__comment {
+  list-style: none;
+  margin-bottom: 1em;
+}
+.has-avatars .wp-block-latest-comments__comment {
+  min-height: 2.25em;
+  list-style: none;
+}
+.has-avatars .wp-block-latest-comments__comment .wp-block-latest-comments__comment-meta,
+.has-avatars .wp-block-latest-comments__comment .wp-block-latest-comments__comment-excerpt {
+  margin-left: 3.25em;
+}
+
+.wp-block-latest-comments__comment-excerpt p {
+  font-size: 0.875em;
+  margin: 0.36em 0 1.4em;
+}
+
+.wp-block-latest-comments__comment-date {
+  display: block;
+  font-size: 0.75em;
+}
+
+.wp-block-latest-comments .avatar,
+.wp-block-latest-comments__comment-avatar {
+  border-radius: 1.5em;
+  display: block;
+  float: left;
+  height: 2.5em;
+  margin-right: 0.75em;
+  width: 2.5em;
+}
+
+.wp-block-latest-comments[style*=font-size] a,
+.wp-block-latest-comments[class*=-font-size] a {
+  font-size: inherit;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/latest-comments/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-latest-posts-css' href='https://pinellas.gov/wp-includes/blocks/latest-posts/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-list-inline-css">
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+ol,
+ul {
+  box-sizing: border-box;
+}
+
+:root :where(.wp-block-list.has-background) {
+  padding: 1.25em 2.375em;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/list/style.css */
+</style>
+<style id="wp-block-loginout-inline-css">
+.wp-block-loginout {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/loginout/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-media-text-css' href='https://pinellas.gov/wp-includes/blocks/media-text/style.css?ver=7.0.3' media='all' />
+<link rel='stylesheet' id='wp-block-navigation-css' href='https://pinellas.gov/wp-includes/blocks/navigation/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-navigation-link-inline-css">
+/**
+ * Colors
+ */
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+.wp-block-navigation .wp-block-navigation-item__label {
+  overflow-wrap: break-word;
+}
+.wp-block-navigation .wp-block-navigation-item__description {
+  display: none;
+}
+
+.link-ui-tools {
+  outline: 1px solid #f0f0f0;
+  padding: 8px;
+}
+
+.link-ui-block-inserter {
+  padding-top: 8px;
+}
+
+.link-ui-block-inserter__back {
+  margin-left: 8px;
+  text-transform: uppercase;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/navigation-link/style.css */
+</style>
+<style id="wp-block-navigation-overlay-close-inline-css">
+.wp-block-navigation-overlay-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+}
+.wp-block-navigation-overlay-close:focus {
+  outline-offset: 2px;
+}
+.wp-block-navigation-overlay-close svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+  display: block;
+  flex-shrink: 0;
+}
+.wp-block-navigation-overlay-close .wp-block-navigation-overlay-close__text {
+  display: inline-flex;
+  align-items: center;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/navigation-overlay-close/style.css */
+</style>
+<style id="wp-block-page-list-inline-css">
+.wp-block-navigation .wp-block-page-list {
+  display: flex;
+  flex-direction: var(--navigation-layout-direction, initial);
+  justify-content: var(--navigation-layout-justify, initial);
+  align-items: var(--navigation-layout-align, initial);
+  flex-wrap: var(--navigation-layout-wrap, wrap);
+  background-color: inherit;
+}
+.wp-block-navigation .wp-block-navigation-item {
+  background-color: inherit;
+}
+
+.wp-block-page-list {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/page-list/style.css */
+</style>
+<style id="wp-block-paragraph-inline-css">
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+.is-small-text {
+  font-size: 0.875em;
+}
+
+.is-regular-text {
+  font-size: 1em;
+}
+
+.is-large-text {
+  font-size: 2.25em;
+}
+
+.is-larger-text {
+  font-size: 3em;
+}
+
+.has-drop-cap:not(:focus)::first-letter {
+  float: left;
+  font-size: 8.4em;
+  line-height: 0.68;
+  font-weight: 100;
+  margin: 0.05em 0.1em 0 0;
+  text-transform: uppercase;
+  font-style: normal;
+}
+
+body.rtl .has-drop-cap:not(:focus)::first-letter {
+  float: initial;
+  margin-left: 0.1em;
+}
+
+p.has-drop-cap.has-background {
+  overflow: hidden;
+}
+
+:root :where(p.has-background) {
+  padding: 1.25em 2.375em;
+}
+
+:where(p.has-text-color:not(.has-link-color)) a {
+  color: inherit;
+}
+
+p.has-text-align-right[style*="writing-mode:vertical-rl"],
+p.has-text-align-left[style*="writing-mode:vertical-lr"] {
+  rotate: 180deg;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/paragraph/style.css */
+</style>
+<style id="wp-block-post-author-inline-css">
+.wp-block-post-author {
+  display: flex;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
+.wp-block-post-author__byline {
+  width: 100%;
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 0.5em;
+}
+.wp-block-post-author__avatar {
+  margin-right: 1em;
+}
+.wp-block-post-author__bio {
+  margin-bottom: 0.7em;
+  font-size: 0.7em;
+}
+.wp-block-post-author__content {
+  flex-grow: 1;
+  flex-basis: 0;
+}
+.wp-block-post-author__name {
+  margin: 0;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-author/style.css */
+</style>
+<style id="wp-block-post-author-biography-inline-css">
+.wp-block-post-author-biography {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-author-biography/style.css */
+</style>
+<style id="wp-block-post-author-name-inline-css">
+.wp-block-post-author-name {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-author-name/style.css */
+</style>
+<style id="wp-block-post-comments-count-inline-css">
+.wp-block-post-comments-count {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-comments-count/style.css */
+</style>
+<style id="wp-block-post-comments-form-inline-css">
+/**
+ * Colors
+ */
+:where(.wp-block-post-comments-form textarea),
+:where(.wp-block-post-comments-form input:not([type=submit])) {
+  border-width: 1px;
+  border-style: solid;
+  border-color: #949494;
+  font-size: 1em;
+  font-family: inherit;
+}
+
+:where(.wp-block-post-comments-form textarea),
+:where(.wp-block-post-comments-form input:where(:not([type=submit]):not([type=checkbox]))) {
+  padding: calc(0.667em + 2px);
+}
+
+.wp-block-post-comments-form {
+  box-sizing: border-box;
+}
+.wp-block-post-comments-form[style*=font-weight] :where(.comment-reply-title) {
+  font-weight: inherit;
+}
+.wp-block-post-comments-form[style*=font-family] :where(.comment-reply-title) {
+  font-family: inherit;
+}
+.wp-block-post-comments-form[class*=-font-size] :where(.comment-reply-title), .wp-block-post-comments-form[style*=font-size] :where(.comment-reply-title) {
+  font-size: inherit;
+}
+.wp-block-post-comments-form[style*=line-height] :where(.comment-reply-title) {
+  line-height: inherit;
+}
+.wp-block-post-comments-form[style*=font-style] :where(.comment-reply-title) {
+  font-style: inherit;
+}
+.wp-block-post-comments-form[style*=letter-spacing] :where(.comment-reply-title) {
+  letter-spacing: inherit;
+}
+.wp-block-post-comments-form :where(input[type=submit]) {
+  box-shadow: none;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+.wp-block-post-comments-form .comment-form textarea,
+.wp-block-post-comments-form .comment-form input:not([type=submit]):not([type=checkbox]):not([type=hidden]) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+}
+.wp-block-post-comments-form .comment-form-author label,
+.wp-block-post-comments-form .comment-form-email label,
+.wp-block-post-comments-form .comment-form-url label {
+  display: block;
+  margin-bottom: 0.25em;
+}
+.wp-block-post-comments-form .comment-form-cookies-consent {
+  display: flex;
+  gap: 0.25em;
+}
+.wp-block-post-comments-form .comment-form-cookies-consent #wp-comment-cookies-consent {
+  margin-top: 0.35em;
+}
+.wp-block-post-comments-form .comment-reply-title {
+  margin-bottom: 0;
+}
+.wp-block-post-comments-form .comment-reply-title :where(small) {
+  font-size: var(--wp--preset--font-size--medium, smaller);
+  margin-left: 0.5em;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-comments-form/style.css */
+</style>
+<style id="wp-block-buttons-inline-css">
+.wp-block-buttons {
+  box-sizing: border-box;
+}
+.wp-block-buttons.is-vertical {
+  flex-direction: column;
+}
+.wp-block-buttons.is-vertical > .wp-block-button:last-child {
+  margin-bottom: 0;
+}
+.wp-block-buttons > .wp-block-button {
+  display: inline-block;
+  margin: 0;
+}
+.wp-block-buttons.is-content-justification-left {
+  justify-content: flex-start;
+}
+.wp-block-buttons.is-content-justification-left.is-vertical {
+  align-items: flex-start;
+}
+.wp-block-buttons.is-content-justification-center {
+  justify-content: center;
+}
+.wp-block-buttons.is-content-justification-center.is-vertical {
+  align-items: center;
+}
+.wp-block-buttons.is-content-justification-right {
+  justify-content: flex-end;
+}
+.wp-block-buttons.is-content-justification-right.is-vertical {
+  align-items: flex-end;
+}
+.wp-block-buttons.is-content-justification-space-between {
+  justify-content: space-between;
+}
+.wp-block-buttons.aligncenter {
+  text-align: center;
+}
+.wp-block-buttons {
+  /* stylelint-disable @stylistic/indentation -- Disable the stylelint rule, otherwise this selector is ugly! */
+}
+.wp-block-buttons:not(.is-content-justification-space-between,
+.is-content-justification-right,
+.is-content-justification-left,
+.is-content-justification-center) .wp-block-button.aligncenter {
+  /* stylelint-enable @stylistic/indentation */
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+.wp-block-buttons[style*=text-decoration] .wp-block-button,
+.wp-block-buttons[style*=text-decoration] .wp-block-button__link {
+  text-decoration: inherit;
+}
+.wp-block-buttons.has-custom-font-size .wp-block-button__link {
+  font-size: inherit;
+}
+.wp-block-buttons .wp-block-button__link {
+  width: 100%;
+}
+
+.wp-block-button.aligncenter {
+  text-align: center;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/buttons/style.css */
+</style>
+<style id="wp-block-post-comments-link-inline-css">
+.wp-block-post-comments-link {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-comments-link/style.css */
+</style>
+<style id="wp-block-post-content-inline-css">
+.wp-block-post-content {
+  display: flow-root;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-content/style.css */
+</style>
+<style id="wp-block-post-date-inline-css">
+.wp-block-post-date {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-date/style.css */
+</style>
+<style id="wp-block-post-excerpt-inline-css">
+:where(.wp-block-post-excerpt) {
+  box-sizing: border-box;
+  margin-top: var(--wp--style--block-gap);
+  margin-bottom: var(--wp--style--block-gap);
+}
+
+.wp-block-post-excerpt__excerpt {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.wp-block-post-excerpt__more-text {
+  margin-top: var(--wp--style--block-gap);
+  margin-bottom: 0;
+}
+
+.wp-block-post-excerpt__more-link {
+  display: inline-block;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-excerpt/style.css */
+</style>
+<style id="wp-block-post-featured-image-inline-css">
+/**
+ * Colors
+ */
+.wp-block-post-featured-image {
+  margin-left: 0;
+  margin-right: 0;
+}
+.wp-block-post-featured-image a {
+  display: block;
+  height: 100%;
+}
+.wp-block-post-featured-image :where(img) {
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  vertical-align: bottom;
+  box-sizing: border-box;
+}
+.wp-block-post-featured-image.alignwide img, .wp-block-post-featured-image.alignfull img {
+  width: 100%;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim {
+  position: absolute;
+  inset: 0;
+  background-color: #000;
+}
+.wp-block-post-featured-image {
+  position: relative;
+}
+
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-gradient {
+  background-color: transparent;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-0 {
+  opacity: 0;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-10 {
+  opacity: 0.1;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-20 {
+  opacity: 0.2;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-30 {
+  opacity: 0.3;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-40 {
+  opacity: 0.4;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-50 {
+  opacity: 0.5;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-60 {
+  opacity: 0.6;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-70 {
+  opacity: 0.7;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-80 {
+  opacity: 0.8;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-90 {
+  opacity: 0.9;
+}
+.wp-block-post-featured-image .wp-block-post-featured-image__overlay.has-background-dim-100 {
+  opacity: 1;
+}
+.wp-block-post-featured-image:where(.alignleft, .alignright) {
+  width: 100%;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-featured-image/style.css */
+</style>
+<style id="wp-block-post-navigation-link-inline-css">
+.wp-block-post-navigation-link .wp-block-post-navigation-link__arrow-previous {
+  display: inline-block;
+  margin-right: 1ch;
+}
+.wp-block-post-navigation-link .wp-block-post-navigation-link__arrow-previous:not(.is-arrow-chevron) {
+  transform: scaleX(1) /*rtl:scaleX(-1);*/;
+}
+.wp-block-post-navigation-link .wp-block-post-navigation-link__arrow-next {
+  display: inline-block;
+  margin-left: 1ch;
+}
+.wp-block-post-navigation-link .wp-block-post-navigation-link__arrow-next:not(.is-arrow-chevron) {
+  transform: scaleX(1) /*rtl:scaleX(-1);*/;
+}
+.wp-block-post-navigation-link.has-text-align-right[style*="writing-mode: vertical-rl"], .wp-block-post-navigation-link.has-text-align-left[style*="writing-mode: vertical-lr"] {
+  rotate: 180deg;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-navigation-link/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-post-template-css' href='https://pinellas.gov/wp-includes/blocks/post-template/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-post-terms-inline-css">
+.wp-block-post-terms {
+  box-sizing: border-box;
+}
+.wp-block-post-terms .wp-block-post-terms__separator {
+  white-space: pre-wrap;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-terms/style.css */
+</style>
+<style id="wp-block-post-time-to-read-inline-css">
+.wp-block-post-time-to-read {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-time-to-read/style.css */
+</style>
+<style id="wp-block-post-title-inline-css">
+.wp-block-post-title {
+  word-break: break-word;
+  box-sizing: border-box;
+}
+.wp-block-post-title :where(a) {
+  display: inline-block;
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-decoration: inherit;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/post-title/style.css */
+</style>
+<style id="wp-block-query-pagination-inline-css">
+.wp-block-query-pagination.is-content-justification-space-between > .wp-block-query-pagination-next:last-of-type {
+  margin-inline-start: auto;
+}
+.wp-block-query-pagination.is-content-justification-space-between > .wp-block-query-pagination-previous:first-child {
+  margin-inline-end: auto;
+}
+.wp-block-query-pagination .wp-block-query-pagination-previous-arrow {
+  margin-right: 1ch;
+  display: inline-block;
+}
+.wp-block-query-pagination .wp-block-query-pagination-previous-arrow:not(.is-arrow-chevron) {
+  transform: scaleX(1) /*rtl:scaleX(-1);*/;
+}
+.wp-block-query-pagination .wp-block-query-pagination-next-arrow {
+  margin-left: 1ch;
+  display: inline-block;
+}
+.wp-block-query-pagination .wp-block-query-pagination-next-arrow:not(.is-arrow-chevron) {
+  transform: scaleX(1) /*rtl:scaleX(-1);*/;
+}
+.wp-block-query-pagination.aligncenter {
+  justify-content: center;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/query-pagination/style.css */
+</style>
+<style id="wp-block-query-title-inline-css">
+.wp-block-query-title {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/query-title/style.css */
+</style>
+<style id="wp-block-query-total-inline-css">
+.wp-block-query-total {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/query-total/style.css */
+</style>
+<style id="wp-block-read-more-inline-css">
+.wp-block-read-more {
+  display: block;
+  width: fit-content;
+}
+.wp-block-read-more:where(:not([style*=text-decoration])) {
+  text-decoration: none;
+}
+.wp-block-read-more:where(:not([style*=text-decoration])):focus, .wp-block-read-more:where(:not([style*=text-decoration])):active {
+  text-decoration: none;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/read-more/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-rss-css' href='https://pinellas.gov/wp-includes/blocks/rss/style.css?ver=7.0.3' media='all' />
+<link rel='stylesheet' id='wp-block-search-css' href='https://pinellas.gov/wp-includes/blocks/search/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-site-logo-inline-css">
+.wp-block-site-logo {
+  box-sizing: border-box;
+  line-height: 0;
+}
+.wp-block-site-logo a {
+  display: inline-block;
+  line-height: 0;
+}
+.wp-block-site-logo.is-default-size img {
+  width: 120px;
+  height: auto;
+}
+.wp-block-site-logo img {
+  height: auto;
+  max-width: 100%;
+}
+.wp-block-site-logo a,
+.wp-block-site-logo img {
+  border-radius: inherit;
+}
+.wp-block-site-logo.aligncenter {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+:root :where(.wp-block-site-logo.is-style-rounded) {
+  border-radius: 9999px;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/site-logo/style.css */
+</style>
+<style id="wp-block-site-tagline-inline-css">
+.wp-block-site-tagline {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/site-tagline/style.css */
+</style>
+<style id="wp-block-site-title-inline-css">
+.wp-block-site-title {
+  box-sizing: border-box;
+}
+.wp-block-site-title :where(a) {
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-decoration: inherit;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/site-title/style.css */
+</style>
+<style id="wp-block-tag-cloud-inline-css">
+.wp-block-tag-cloud {
+  box-sizing: border-box;
+}
+.wp-block-tag-cloud.aligncenter {
+  text-align: center;
+  justify-content: center;
+}
+.wp-block-tag-cloud a {
+  display: inline-block;
+  margin-right: 5px;
+}
+.wp-block-tag-cloud span {
+  display: inline-block;
+  margin-left: 5px;
+  text-decoration: none;
+}
+
+:root :where(.wp-block-tag-cloud.is-style-outline) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1ch;
+}
+
+:root :where(.wp-block-tag-cloud.is-style-outline a) {
+  border: 1px solid currentColor;
+  font-size: unset !important;
+  margin-right: 0;
+  padding: 1ch 2ch;
+  text-decoration: none !important;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/tag-cloud/style.css */
+</style>
+<style id="wp-block-term-count-inline-css">
+.wp-block-term-count {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/term-count/style.css */
+</style>
+<style id="wp-block-term-description-inline-css">
+:where(.wp-block-term-description) {
+  box-sizing: border-box;
+  margin-top: var(--wp--style--block-gap);
+  margin-bottom: var(--wp--style--block-gap);
+}
+
+.wp-block-term-description p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/term-description/style.css */
+</style>
+<style id="wp-block-term-name-inline-css">
+.wp-block-term-name {
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/term-name/style.css */
+</style>
+<style id="wp-block-term-template-inline-css">
+.wp-block-term-template {
+  margin-top: 0;
+  margin-bottom: 0;
+  max-width: 100%;
+  list-style: none;
+  padding: 0;
+  box-sizing: border-box;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/term-template/style.css */
+</style>
+<style id="wp-block-video-inline-css">
+/**
+ * Typography
+ */
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+/**
+ * Breakpoints & Media Queries
+ */
+/**
+*  Converts a hex value into the rgb equivalent.
+*
+* @param {string} hex - the hexadecimal value to convert
+* @return {string} comma separated rgb values
+*/
+/**
+ * Long content fade mixin
+ *
+ * Creates a fading overlay to signify that the content is longer
+ * than the space allows.
+ */
+/**
+ * Breakpoint mixins
+ */
+/**
+ * Focus styles.
+ */
+/**
+ * Applies editor left position to the selector passed as argument
+ */
+/**
+ * Styles that are reused verbatim in a few places
+ */
+/**
+ * Allows users to opt-out of animations via OS-level preferences.
+ */
+/**
+ * Reset default styles for JavaScript UI based pages.
+ * This is a WP-admin agnostic reset
+ */
+/**
+ * Reset the WP Admin page styles for Gutenberg-like pages.
+ */
+/**
+ * Creates a checkerboard pattern background to indicate transparency.
+ * @param {String} $size - The size of the squares in the checkerboard pattern. Default is 12px.
+ */
+.wp-block-video {
+  box-sizing: border-box;
+}
+.wp-block-video video {
+  width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+@supports (position: sticky) {
+  .wp-block-video [poster] {
+    object-fit: cover;
+  }
+}
+.wp-block-video.aligncenter {
+  text-align: center;
+}
+.wp-block-video :where(figcaption) {
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/video/style.css */
+</style>
+<style id="wp-block-accordion-heading-inline-css">
+.wp-block-accordion-heading__toggle {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: inherit;
+  word-spacing: inherit;
+  font-style: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: var(--wp--preset--spacing--20, 1em) 0;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  text-align: inherit;
+  width: 100%;
+}
+.wp-block-accordion-heading__toggle:not(:focus-visible) {
+  outline: none;
+}
+.wp-block-accordion-heading__toggle:hover .wp-block-accordion-heading__toggle-title {
+  text-decoration: underline;
+}
+
+.wp-block-accordion-heading__toggle-title {
+  flex: 1;
+}
+
+.wp-block-accordion-heading__toggle-icon {
+  width: 1.2em;
+  height: 1.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/accordion-heading/style.css */
+</style>
+<style id="wp-block-accordion-panel-inline-css">
+.wp-block-accordion-panel[inert], .wp-block-accordion-panel[aria-hidden=true] {
+  display: none;
+  margin-block-start: 0;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/accordion-panel/style.css */
+</style>
+<style id="wp-block-audio-inline-css">
+/**
+ * Typography
+ */
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+/**
+ * Breakpoints & Media Queries
+ */
+/**
+*  Converts a hex value into the rgb equivalent.
+*
+* @param {string} hex - the hexadecimal value to convert
+* @return {string} comma separated rgb values
+*/
+/**
+ * Long content fade mixin
+ *
+ * Creates a fading overlay to signify that the content is longer
+ * than the space allows.
+ */
+/**
+ * Breakpoint mixins
+ */
+/**
+ * Focus styles.
+ */
+/**
+ * Applies editor left position to the selector passed as argument
+ */
+/**
+ * Styles that are reused verbatim in a few places
+ */
+/**
+ * Allows users to opt-out of animations via OS-level preferences.
+ */
+/**
+ * Reset default styles for JavaScript UI based pages.
+ * This is a WP-admin agnostic reset
+ */
+/**
+ * Reset the WP Admin page styles for Gutenberg-like pages.
+ */
+/**
+ * Creates a checkerboard pattern background to indicate transparency.
+ * @param {String} $size - The size of the squares in the checkerboard pattern. Default is 12px.
+ */
+.wp-block-audio {
+  box-sizing: border-box;
+}
+.wp-block-audio :where(figcaption) {
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+}
+.wp-block-audio audio {
+  width: 100%;
+  min-width: 300px;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/audio/style.css */
+</style>
+<style id="wp-block-code-inline-css">
+.wp-block-code {
+  box-sizing: border-box;
+}
+.wp-block-code code {
+  display: block;
+  font-family: inherit;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  /*!rtl:begin:ignore*/
+  direction: ltr;
+  text-align: initial;
+  /*!rtl:end:ignore*/
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/code/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-columns-css' href='https://pinellas.gov/wp-includes/blocks/columns/style.css?ver=7.0.3' media='all' />
+<link rel='stylesheet' id='wp-block-embed-css' href='https://pinellas.gov/wp-includes/blocks/embed/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-group-inline-css">
+.wp-block-group {
+  box-sizing: border-box;
+}
+
+:where(.wp-block-group.wp-block-group-is-layout-constrained) {
+  position: relative;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/group/style.css */
+</style>
+<style id="wp-block-math-inline-css">
+.wp-block-math {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/math/style.css */
+</style>
+<style id="wp-block-preformatted-inline-css">
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+.wp-block-preformatted {
+  box-sizing: border-box;
+  white-space: pre-wrap;
+}
+
+:where(.wp-block-preformatted.has-background) {
+  padding: 1.25em 2.375em;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/preformatted/style.css */
+</style>
+<style id="wp-block-pullquote-inline-css">
+/**
+ * SCSS Variables.
+ *
+ * Please use variables from this sheet to ensure consistency across the UI.
+ * Don't add to this sheet unless you're pretty sure the value will be reused in many places.
+ * For example, don't add rules to this sheet that affect block visuals. It's purely for UI.
+ */
+/**
+ * Colors
+ */
+/**
+ * Fonts & basic variables.
+ */
+/**
+ * Typography
+ */
+/**
+ * Grid System.
+ * https://make.wordpress.org/design/2019/10/31/proposal-a-consistent-spacing-system-for-wordpress/
+ */
+/**
+ * Radius scale.
+ */
+/**
+ * Elevation scale.
+ */
+/**
+ * Dimensions.
+ */
+/**
+ * Mobile specific styles
+ */
+/**
+ * Editor styles.
+ */
+/**
+ * Block & Editor UI.
+ */
+/**
+ * Block paddings.
+ */
+/**
+ * React Native specific.
+ * These variables do not appear to be used anywhere else.
+ */
+.wp-block-pullquote {
+  text-align: center;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+  margin: 0 0 1em 0;
+  padding: 4em 0;
+}
+.wp-block-pullquote p,
+.wp-block-pullquote blockquote {
+  color: inherit;
+}
+.wp-block-pullquote blockquote {
+  margin: 0;
+}
+.wp-block-pullquote p {
+  margin-top: 0;
+}
+.wp-block-pullquote p:last-child {
+  margin-bottom: 0;
+}
+.wp-block-pullquote.alignleft, .wp-block-pullquote.alignright {
+  max-width: 420px;
+}
+.wp-block-pullquote cite,
+.wp-block-pullquote footer {
+  position: relative;
+}
+.wp-block-pullquote .has-text-color a {
+  color: inherit;
+}
+
+.wp-block-pullquote.has-text-align-left blockquote {
+  text-align: left;
+}
+
+.wp-block-pullquote.has-text-align-right blockquote {
+  text-align: right;
+}
+
+.wp-block-pullquote.has-text-align-center blockquote {
+  text-align: center;
+}
+
+.wp-block-pullquote.is-style-solid-color {
+  border: none;
+}
+.wp-block-pullquote.is-style-solid-color blockquote {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 60%;
+}
+.wp-block-pullquote.is-style-solid-color blockquote p {
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 2em;
+}
+.wp-block-pullquote.is-style-solid-color blockquote cite {
+  text-transform: none;
+  font-style: normal;
+}
+
+.wp-block-pullquote :where(cite) {
+  color: inherit;
+  display: block;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/pullquote/style.css */
+</style>
+<style id="wp-block-quote-inline-css">
+.wp-block-quote {
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+.wp-block-quote.is-style-large:where(:not(.is-style-plain)), .wp-block-quote.is-large:where(:not(.is-style-plain)) {
+  margin-bottom: 1em;
+  padding: 0 1em;
+}
+.wp-block-quote.is-style-large:where(:not(.is-style-plain)) p, .wp-block-quote.is-large:where(:not(.is-style-plain)) p {
+  font-size: 1.5em;
+  font-style: italic;
+  line-height: 1.6;
+}
+.wp-block-quote.is-style-large:where(:not(.is-style-plain)) cite,
+.wp-block-quote.is-style-large:where(:not(.is-style-plain)) footer, .wp-block-quote.is-large:where(:not(.is-style-plain)) cite,
+.wp-block-quote.is-large:where(:not(.is-style-plain)) footer {
+  font-size: 1.125em;
+  text-align: right;
+}
+.wp-block-quote > cite {
+  display: block;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/quote/style.css */
+</style>
+<style id="wp-block-separator-inline-css">
+@charset "UTF-8";
+.wp-block-separator {
+  border-top: 2px solid currentColor;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+:root :where(.wp-block-separator.is-style-dots) {
+  text-align: center;
+  line-height: 1;
+  height: auto;
+}
+:root :where(.wp-block-separator.is-style-dots)::before {
+  content: "···";
+  color: currentColor;
+  font-size: 1.5em;
+  letter-spacing: 2em;
+  /*rtl:ignore*/
+  padding-left: 2em;
+  font-family: serif;
+}
+
+.wp-block-separator.is-style-dots {
+  background: none !important;
+  border: none !important;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/separator/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-social-links-css' href='https://pinellas.gov/wp-includes/blocks/social-links/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-spacer-inline-css">
+.wp-block-spacer {
+  clear: both;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/spacer/style.css */
+</style>
+<link rel='stylesheet' id='wp-block-table-css' href='https://pinellas.gov/wp-includes/blocks/table/style.css?ver=7.0.3' media='all' />
+<style id="wp-block-text-columns-inline-css">
+.wp-block-text-columns {
+  display: flex;
+}
+.wp-block-text-columns.aligncenter {
+  display: flex;
+}
+.wp-block-text-columns .wp-block-column {
+  margin: 0 1em;
+  padding: 0;
+}
+.wp-block-text-columns .wp-block-column:first-child {
+  margin-left: 0;
+}
+.wp-block-text-columns .wp-block-column:last-child {
+  margin-right: 0;
+}
+.wp-block-text-columns.columns-2 .wp-block-column {
+  width: 50%;
+}
+.wp-block-text-columns.columns-3 .wp-block-column {
+  width: 33.3333333333%;
+}
+.wp-block-text-columns.columns-4 .wp-block-column {
+  width: 25%;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/text-columns/style.css */
+</style>
+<style id="wp-block-verse-inline-css">
+pre.wp-block-verse {
+  box-sizing: border-box;
+  overflow: auto;
+  white-space: pre-wrap;
+  min-width: 1em;
+  word-break: break-word;
+}
+
+:where(pre.wp-block-verse) {
+  font-family: inherit;
+}
+/*# sourceURL=https://pinellas.gov/wp-includes/blocks/verse/style.css */
+</style>
+<style id="co-authors-plus-coauthors-style-inline-css">
+.wp-block-co-authors-plus-coauthors.is-layout-flow [class*=wp-block-co-authors-plus]{display:inline}
+
+/*# sourceURL=https://pinellas.gov/wp-content/plugins/co-authors-plus/build/blocks/block-coauthors/style-index.css */
+</style>
+<style id="co-authors-plus-avatar-style-inline-css">
+.wp-block-co-authors-plus-avatar :where(img){height:auto;max-width:100%;vertical-align:bottom}.wp-block-co-authors-plus-coauthors.is-layout-flow .wp-block-co-authors-plus-avatar :where(img){vertical-align:middle}.wp-block-co-authors-plus-avatar:is(.alignleft,.alignright){display:table}.wp-block-co-authors-plus-avatar.aligncenter{display:table;margin-inline:auto}
+
+/*# sourceURL=https://pinellas.gov/wp-content/plugins/co-authors-plus/build/blocks/block-coauthor-avatar/style-index.css */
+</style>
+<style id="co-authors-plus-image-style-inline-css">
+.wp-block-co-authors-plus-image{margin-bottom:0}.wp-block-co-authors-plus-image :where(img){height:auto;max-width:100%;vertical-align:bottom}.wp-block-co-authors-plus-coauthors.is-layout-flow .wp-block-co-authors-plus-image :where(img){vertical-align:middle}.wp-block-co-authors-plus-image:is(.alignfull,.alignwide) :where(img){width:100%}.wp-block-co-authors-plus-image:is(.alignleft,.alignright){display:table}.wp-block-co-authors-plus-image.aligncenter{display:table;margin-inline:auto}
+
+/*# sourceURL=https://pinellas.gov/wp-content/plugins/co-authors-plus/build/blocks/block-coauthor-image/style-index.css */
+</style>
+<style id="font-awesome-svg-styles-default-inline-css">
+.svg-inline--fa {
+  display: inline-block;
+  height: 1em;
+  overflow: visible;
+  vertical-align: -.125em;
+}
+/*# sourceURL=font-awesome-svg-styles-default-inline-css */
+</style>
+<link rel='stylesheet' id='font-awesome-svg-styles-css' href='https://pinellas.gov/wp-content/uploads/font-awesome/v5.15.4/css/svg-with-js.css' media='all' />
+<style id="font-awesome-svg-styles-inline-css">
+   .wp-block-font-awesome-icon svg::before,
+   .wp-rich-text-font-awesome-icon svg::before {content: unset;}
+/*# sourceURL=font-awesome-svg-styles-inline-css */
+</style>
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--color--dark-blue: #0C162F;--wp--preset--color--blue: #00244C;--wp--preset--color--light-blue: #2E588F;--wp--preset--color--dark-gray: #5A6268;--wp--preset--color--gray: #DEE2E6;--wp--preset--color--light-gray: #F8F9FA;--wp--preset--color--red: #D0021B;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-dark-blue-color{color: var(--wp--preset--color--dark-blue) !important;}.has-blue-color{color: var(--wp--preset--color--blue) !important;}.has-light-blue-color{color: var(--wp--preset--color--light-blue) !important;}.has-dark-gray-color{color: var(--wp--preset--color--dark-gray) !important;}.has-gray-color{color: var(--wp--preset--color--gray) !important;}.has-light-gray-color{color: var(--wp--preset--color--light-gray) !important;}.has-red-color{color: var(--wp--preset--color--red) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-dark-blue-background-color{background-color: var(--wp--preset--color--dark-blue) !important;}.has-blue-background-color{background-color: var(--wp--preset--color--blue) !important;}.has-light-blue-background-color{background-color: var(--wp--preset--color--light-blue) !important;}.has-dark-gray-background-color{background-color: var(--wp--preset--color--dark-gray) !important;}.has-gray-background-color{background-color: var(--wp--preset--color--gray) !important;}.has-light-gray-background-color{background-color: var(--wp--preset--color--light-gray) !important;}.has-red-background-color{background-color: var(--wp--preset--color--red) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-dark-blue-border-color{border-color: var(--wp--preset--color--dark-blue) !important;}.has-blue-border-color{border-color: var(--wp--preset--color--blue) !important;}.has-light-blue-border-color{border-color: var(--wp--preset--color--light-blue) !important;}.has-dark-gray-border-color{border-color: var(--wp--preset--color--dark-gray) !important;}.has-gray-border-color{border-color: var(--wp--preset--color--gray) !important;}.has-light-gray-border-color{border-color: var(--wp--preset--color--light-gray) !important;}.has-red-border-color{border-color: var(--wp--preset--color--red) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+:root :where(.wp-block-icon svg){width: 24px;}
+:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}
+:where(.wp-block-term-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-term-template.is-layout-grid){gap: 1.25em;}
+:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}
+:root :where(.wp-block-pullquote){font-size: 1.5em;line-height: 1.6;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+<link rel='stylesheet' id='pb-accordion-blocks-style-css' href='https://pinellas.gov/wp-content/plugins/accordion-blocks/build/index.css?ver=1787234547' media='all' />
+<link rel='stylesheet' id='widgetopts-styles-css' href='https://pinellas.gov/wp-content/plugins/extended-widget-options/assets/css/widget-options.css' media='all' />
+<link rel='stylesheet' id='css-animate-css' href='https://pinellas.gov/wp-content/plugins/extended-widget-options/assets/css/animate.min.css' media='all' />
+<link rel='stylesheet' id='picostrap-styles-css' href='https://pinellas.gov/wp-content/uploads/2023/01/styles-bundle-403-5.css?ver=7.0.3' media='all' />
+<link rel='stylesheet' id='relevanssi-live-search-css' href='https://pinellas.gov/wp-content/plugins/relevanssi-live-ajax-search/assets/styles/style.css?ver=2.5' media='all' />
+<link rel='stylesheet' id='__EPYT__style-css' href='https://pinellas.gov/wp-content/plugins/youtube-embed-plus/styles/ytprefs.css?ver=14.2.6' media='all' />
+<style id="__EPYT__style-inline-css">
+
+                .epyt-gallery-thumb {
+                        width: 33.333%;
+                }
+                
+                         @media (min-width:0px) and (max-width: 767px) {
+                            .epyt-gallery-rowbreak {
+                                display: none;
+                            }
+                            .epyt-gallery-allthumbs[class*="epyt-cols"] .epyt-gallery-thumb {
+                                width: 100% !important;
+                            }
+                          }
+/*# sourceURL=__EPYT__style-inline-css */
+</style>
+<script id="wp-hooks-js" src="https://pinellas.gov/wp-includes/js/dist/hooks.js?ver=7496969728ca0f95732d"></script>
+<script id="wp-i18n-js" src="https://pinellas.gov/wp-includes/js/dist/i18n.js?ver=781d11515ad3d91786ec"></script>
+<script id="wp-i18n-js-after">
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'ltr' ] } );
+//# sourceURL=wp-i18n-js-after
+</script>
+<script defer crossorigin="anonymous" id="font-awesome-official-js" src="https://kit.fontawesome.com/18cad2a6dd.js"></script>
+<script id="jquery-core-js" src="https://pinellas.gov/wp-includes/js/jquery/jquery.js?ver=3.7.1"></script>
+<script id="jquery-migrate-js" src="https://pinellas.gov/wp-includes/js/jquery/jquery-migrate.js?ver=3.4.1"></script>
+<script id="__ytprefs__-js-extra">
+var _EPYT_ = {"ajaxurl":"https://pinellas.gov/wp-admin/admin-ajax.php","security":"ce18ad6d88","gallery_scrolloffset":"20","eppathtoscripts":"https://pinellas.gov/wp-content/plugins/youtube-embed-plus/scripts/","eppath":"https://pinellas.gov/wp-content/plugins/youtube-embed-plus/","epresponsiveselector":"[\"iframe.__youtube_prefs__\"]","epdovol":"1","version":"14.2.6","evselector":"iframe.__youtube_prefs__[src], iframe[src*=\"youtube.com/embed/\"], iframe[src*=\"youtube-nocookie.com/embed/\"]","ajax_compat":"","maxres_facade":"eager","ytapi_load":"light","pause_others":"","stopMobileBuffer":"1","facade_mode":"","not_live_on_channel":""};
+//# sourceURL=__ytprefs__-js-extra
+</script>
+<script id="__ytprefs__-js" src="https://pinellas.gov/wp-content/plugins/youtube-embed-plus/scripts/ytprefs.js?ver=14.2.6"></script>
+<meta name="generator" content="Site Kit by Google 1.184.0" />        <script type="text/javascript">
+            var ajaxurl = 'https://pinellas.gov/wp-admin/admin-ajax.php';
+        </script>
+        <meta name="et-api-version" content="v1"><meta name="et-api-origin" content="https://pinellas.gov"><link rel="https://theeventscalendar.com/" href="https://pinellas.gov/wp-json/tribe/tickets/v1/" /><meta name="tec-api-version" content="v1"><meta name="tec-api-origin" content="https://pinellas.gov"><link rel="alternate" href="https://pinellas.gov/wp-json/tribe/events/v1/" />		<script>
+			document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+		</script>
+				<style>
+			.no-js img.lazyload {
+				display: none;
+			}
+
+			figure.wp-block-image img.lazyloading {
+				min-width: 150px;
+			}
+
+			.lazyload,
+			.lazyloading {
+				--smush-placeholder-width: 100px;
+				--smush-placeholder-bg-max-width: 120px;
+				--smush-placeholder-aspect-ratio: 1/1;
+				width: var(--smush-image-width, var(--smush-placeholder-width)) !important;
+				aspect-ratio: var(--smush-image-aspect-ratio, var(--smush-placeholder-aspect-ratio)) !important;
+			}
+
+						.lazyload, .lazyloading {
+				opacity: 0;
+			}
+
+			.lazyloaded {
+				opacity: 1;
+				transition: opacity 400ms;
+				transition-delay: 0ms;
+			}
+
+					</style>
+		<link rel="dns-prefetch" href="//fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400|Roboto:500&display=swap" rel="stylesheet">
+ <script src="https://kit.fontawesome.com/18cad2a6dd.js" crossorigin="anonymous"></script>
+
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '2999137950302392');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src=https://www.facebook.com/tr?id=2999137950302392&ev=PageView&noscript=1
+/></noscript><meta name="theme-color" content="#00244c" />
+	<link rel="icon" href="https://pinellas.gov/wp-content/uploads/2020/10/cropped-favicon@4x-32x32.png" sizes="32x32" />
+<link rel="icon" href="https://pinellas.gov/wp-content/uploads/2020/10/cropped-favicon@4x-192x192.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://pinellas.gov/wp-content/uploads/2020/10/cropped-favicon@4x-180x180.png" />
+<meta name="msapplication-TileImage" content="https://pinellas.gov/wp-content/uploads/2020/10/cropped-favicon@4x-270x270.png" />
+<style id="wp-custom-css">
+@media (min-width: 768px) {
+footer.site-footer #gov-offices-container #gov-offices ul {
+    height: 550px !important;
+}
+	}
+
+@media (min-width: 1200px) {
+footer.site-footer #gov-offices-container #gov-offices ul {
+    height: 400px !important;
+}
+}
+
+footer.site-footer #gov-offices-container #gov-offices ul li a {
+    text-indent: -1rem;
+    margin-left: 1rem;
+	display: block;
+}
+
+.lhnOfflineForm form { display: none !important; }
+
+#breadcrumb-container span, #breadcrumb-container span a, #breadcrumb-container .breadcrumb_last {
+    color: #fff;
+    font-size: 1em;
+}
+
+.sc_fs_faq__content .wp-block-list {
+    margin-left: 5px
+}
+
+/* petco love begin */
+#section-content h2, #section-content h3, #section-content h4, #section-content h5, #section-content h6, #section-content p {
+    max-width: 840px !important;
+}
+.align-top-row {
+  align-items: flex-start; /* don't use !important */
+}
+.whatelseBlock {
+    background-color: #F5FAFF;
+    padding: 40px 16px 40px 16px;
+	margin: 20px 0px 20px 0px;
+}
+
+.findOwnerCtaBlock {
+	background-color: #EBF5FF;
+	margin: 20px 0px 20px 0px;
+}
+.findOwnerCtaTextBlock {
+	padding 5px;
+}
+.petcoButton .wp-element-button {
+    border-radius: 3px;
+    background: #E9ECEF;
+    display: flex;
+    color: #4C4C4C;
+    text-align: center;
+    font-family: Roboto;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 150%; 
+    padding: 7.5px 15px;
+}
+.petcoButton .wp-element-button:hover {
+    border-radius: 3px;
+    background: #E9ECEF;
+    display: flex;
+    color: #254672 !important;
+    text-align: center;
+    font-family: Roboto;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 150%; 
+    padding: 7.5px 15px;
+}
+.petcoImageBlock {
+    width: 100% !important;
+}
+.petcoImageBlock img {
+    width: 100% !important;
+}
+h2::after {
+  content: none !important;
+}
+/* petco love end */
+
+/* BDRS Updated CSS begin */
+.bdrs-quote {
+    color: #2E588F;
+	  font-size: 28px;
+	  font-weight: 600;
+}
+.bdrs-important-note {
+	color: #2E588F;
+	  font-size: 20px;
+	  font-weight: 500;
+}
+/* Kell Updated CSS end */
+
+
+/* Desktop Only Dashboard*/
+@media (max-width: 767px) {
+  .desktop-only-dash { display: none !important; }
+}
+/* Mobile Only */
+@media (min-width: 768px) {
+  .mobile-only-dash { display: none !important; }
+}
+
+
+/* back to top chevron */
+#scrollTopBtn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#scrollTopBtn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#scrollTopBtn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 48px;
+  height: 48px;
+  cursor: pointer;
+  z-index: 9999;
+}
+
+#scrollTopBtn img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.2s ease;
+}
+
+#scrollTopBtn .hover {
+  opacity: 0;
+}
+
+#scrollTopBtn:hover .default {
+  opacity: 0;
+}
+
+#scrollTopBtn:hover .hover {
+  opacity: 1;
+}
+/* /back to top chevron */
+/* /BDRS Updated CSS begin */
+
+
+/* --- gravity forms styles --- */
+.gform-body h2:after {
+    content: none !important;
+}
+
+.gfield_html h5 { /* force html full width */
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block;
+}
+
+.gfield-choice-input[type="radio"] {
+    transform: scale(1.6); 
+    margin-right: 10px; 
+}
+
+.gfield_radio .gchoice {
+    display: flex;
+    align-items: flex-start;   /* align radio button to top */
+}
+
+.gfield_radio .gfield-choice-input[type="radio"] {
+    margin-top: 4px;  /* optional fine-tuning */
+}
+
+
+/* outer table border */
+table.gv-table-view {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #2b2b2b; /* dark outer border */
+    font-size: 15px;
+}
+
+/* table header */
+.gv-table-view thead th {
+    background: #f2f6fb; /* light gray-blue header */
+    border-bottom: 2px solid #2b2b2b;
+    padding: 10px 12px;
+    font-weight: 600;
+}
+
+/* table footer */
+.gv-table-view tfoot th {
+    background: #f2f6fb;
+    border-top: 2px solid #2b2b2b;
+    padding: 10px 12px;
+    font-weight: 600;
+}
+
+/* inside cell lines */
+.gv-table-view td {
+    border: 1px solid #d8d8d8;
+    padding: 10px 12px;
+}
+
+/* altyernating row colors */
+.gv-table-view tbody tr:nth-child(odd) {
+    background: #f0f5ff;
+}
+
+.gv-table-view tbody tr:nth-child(even) {
+    background: #ffffff;
+}
+
+/* hover highlight */
+.gv-table-view tbody tr:hover {
+    background: #d5eaff;
+}
+/* --- /gravity forms styles --- */
+
+/* chat header */
+.custom-greeting {
+    font-size: 1.17em;
+    font-weight: 700;
+    letter-spacing: 2px;
+    line-height: 28px;
+    box-sizing: inherit;
+    font-family: "LHN Open Sans", sans-serif;
+    color: inherit;
+}
+/* /chat header */
+</style>
+    <link rel='stylesheet' id='picostrap-styles-css' href='/wp-content/themes/pinellas-county/custom-override.css?ver=1.0.1' media='all' />
+
+    <!-- wp_head end -->
+    <script src="https://kit.fontawesome.com/18cad2a6dd.js" crossorigin="anonymous"></script>
+  </head>
+  <body class="wp-singular programs-template-default single single-programs postid-91890 wp-custom-logo wp-embed-responsive wp-theme-picostrap wp-child-theme-pinellas-county tribe-no-js tec-no-tickets-on-recurring tec-no-rsvp-on-recurring picostrap_header_navbar_position_ tribe-theme-picostrap" >
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe data-src="https://www.googletagmanager.com/ns.html?id=GTM-WR6467J"
+  height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager" src="about:blank" class="lazyload" data-load-mode="0"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+   
+
+  
+  <a class="skip-link sr-only sr-only-focusable" href="#theme-main">Skip to main content</a>
+    <div id="wrapper-topbar-custom" class="py-2 text-white bg-dark">
+      <div class="container">
+        <div class="row">
+
+          <nav id="topbar-content-middle"
+            class="d-lg-flex align-items-lg-center col-lg-7 text-center text-lg-left small mt-3 mt-lg-0"
+            aria-label="Top utility menu">
+
+            <ul class="list-unstyled d-lg-flex mb-0">
+              <li class="mr-2 mr-md-3">
+                <a href="/accessibility" class="text-white">Accessibility</a>
+              </li>
+              <li class="mr-2 mr-md-3">
+                <a href="/public-records/" class="text-white">Public Records</a>
+              </li>
+              <li class="mr-2 mr-md-3">
+                <a href="/news" class="text-white">News</a>
+              </li>
+              <li class="mr-2 mr-md-3">
+                <a href="/events" class="text-white">Calendar</a>
+              </li>
+              <li class="mr-2 mr-md-3">
+                <a href="/department/human-resources/" class="text-white">Human Resources</a>
+              </li>
+              <li class="mr-2 mr-md-3">
+                <a href="https://recover.pinellas.gov" target="_blank" class="text-white">
+                  Hurricane Recovery
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div id="topbar-content-right" class="col-lg-5 text-center text-lg-right small mb-3 mb-lg-0">
+
+            <div id="header-social" class="my-2 my-lg-0">
+              <a href="https://www.facebook.com/PinellasGov/" class="social-link text-white" aria-label="Pinellas County Government on Facebook">
+                <i class="fab fa-facebook-f" aria-hidden="true"></i>
+              </a>
+
+              <a id="cust-twitter-icon" target="_blank" href="https://twitter.com/PinellasGov" aria-label="Visit Pinellas County Government on Twitter">
+                <img data-src="/wp-content/uploads/2024/09/twitter-x-logo-white-round.svg" alt="" aria-hidden="true" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" class="lazyload">
+              </a>
+
+              <a href="https://www.youtube.com/@PinellasGov" class="social-link text-white ml-2" aria-label="Pinellas County Government on YouTube">
+                <i class="fab fa-youtube" aria-hidden="true"></i>
+              </a>
+
+              <a href="https://www.instagram.com/PinellasGov/" class="social-link text-white ml-2" aria-label="Pinellas County Government on Instagram">
+                <i class="fab fa-instagram" aria-hidden="true"></i>
+              </a>
+
+              <a href="https://nextdoor.com/agency-detail/fl/pinellas-county/pinellas-county-government/"
+                class="social-link text-white ml-2"
+                aria-label="Pinellas County Government on Nextdoor"
+                style="font-size: .82rem;top: -4px;">
+                <i class="fak fa-nextdoor-logo-white" aria-hidden="true"></i>
+              </a>
+            </div>
+
+            <form role="search" method="get" action="https://pinellas.gov/" id="header-search">
+              <div class="form-group d-flex">
+                <label for="formGroupExampleInput" class="sr-only"><strong>Search the Website</strong></label>
+
+                <div class="input-group">
+                  <div class="input-group-prepend">
+                    <div class="input-group-text">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="height: 1rem;fill:#2E588F">
+                        <path d="M500.3 443.7l-119.7-119.7c27.22-40.41 40.65-90.9 33.46-144.7C401.8 87.79 326.8 13.32 235.2 1.723C99.01-15.51-15.51 99.01 1.724 235.2c11.6 91.64 86.08 166.7 177.6 178.9c53.8 7.189 104.3-6.236 144.7-33.46l119.7 119.7c15.62 15.62 40.95 15.62 56.57 0C515.9 484.7 515.9 459.3 500.3 443.7zM79.1 208c0-70.58 57.42-128 128-128s128 57.42 128 128c0 70.58-57.42 128-128 128S79.1 278.6 79.1 208z"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  <input type="text" class="form-control" id="formGroupExampleInput" placeholder="Phrase or word"
+                    name="s" title="Search for:"
+                    data-rlvlive="true" data-rlvparentel="#rlvlive" data-rlvconfig="default">
+                </div>
+
+                <button type="submit" class="btn">Search</button>
+                <div id="rlvlive"></div>
+              </div>
+            </form>
+
+          </div> <!-- closes #topbar-content-right -->
+
+        </div>
+      </div>
+    </div>
+  <!-- ******************* The Navbar Area ******************* -->
+	<div id="wrapper-navbar" itemscope itemtype="http://schema.org/WebSite">
+
+    <nav class="navbar navbar-expand-lg  navbar-dark bg-primary" id="myNavbar">
+    <div class="container" >
+      
+      <div id="logo-tagline-wrap">
+        <!-- Your site title as branding in the menu -->
+        <!-- end custom logo -->
+        <a href="/" class="custom-logo-link ml-3 ml-lg-0" rel="home" aria-current="page"><img width="142" height="92" data-src="https://pinellas.gov/wp-content/themes/pinellas-county/img/logo.svg" class="custom-logo lazyload" alt="Pinellas County logo" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" style="--smush-placeholder-width: 142px; --smush-placeholder-aspect-ratio: 142/92;"></a>
+      
+              </div>
+
+      <button class="navbar-toggler mr-3" type="button" data-toggle="collapse" data-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="small">Menu</span><br>
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      
+
+      <div class="collapse navbar-collapse ml-lg-5" id="mainNav">
+        <ul class="navbar-nav w-100">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="topicsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Topics</a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="topicsDropdown">
+            <div class="container">
+              <div class="row">
+                <div class="col-12 col-lg-4 order-1"><h3>Topics</h3></div>
+                <div class="col-12 col-lg-8 text-lg-right order-3 order-lg-2"><a href="/topics" class="btn btn-primary btn-sm mt-lg-0 mt-4">View All Topics</a></div>
+                <div class="col-lg-12 order-2 order-lg-3">
+                  <div id="topics-nav" class="menu-mega-menu-topic-navigation-container"><ul id="menu-mega-menu-topic-navigation" class="mega-nav three-col"><li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-55262"><a href="https://pinellas.gov/topic/community-planning/affordable-housing/">Affordable Housing</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38751"><a href="https://pinellas.gov/topic/animals-pets/">Animals &amp; Pets</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38752"><a href="https://pinellas.gov/topic/building-development/">Building &amp; Development</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38753"><a href="https://pinellas.gov/topic/business-industry/">Business &amp; Industry</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38754"><a href="https://pinellas.gov/topic/careers-employment/">Careers &amp; Employment</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38755"><a href="https://pinellas.gov/topic/community-planning/">Community Planning</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38756"><a href="https://pinellas.gov/topic/consumer-protection/">Consumer Protection</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-91582"><a href="https://pinellas.gov/topic/transparency-open-government/county-budget-and-finance/">County Budget and Finance</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38757"><a href="https://pinellas.gov/topic/environment/">Environment</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38747"><a href="https://pinellas.gov/topic/garbage-and-recycling/">Garbage &amp; Recycling</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38748"><a href="https://pinellas.gov/topic/get-involved/">Get Involved</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38749"><a href="https://pinellas.gov/topic/home-property/">Home &amp; Property</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38758"><a href="https://pinellas.gov/topic/human-rights-social-services/">Human Rights &amp; Social Services</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38759"><a href="https://pinellas.gov/topic/parks-recreation-culture-travel/">Parks, Recreation, Culture &amp; Travel</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38761"><a href="https://pinellas.gov/topic/resiliency/">Resiliency</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38760"><a href="https://pinellas.gov/topic/safety-emergencies/">Safety &amp; Emergencies</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38762"><a href="https://pinellas.gov/topic/transparency-open-government/">Transparency &amp; Open Government</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38763"><a href="https://pinellas.gov/topic/transportation/">Transportation</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-38764"><a href="https://pinellas.gov/topic/water-sewer/">Water &amp; Sewer</a></li>
+</ul></div>                </div>
+              </div>
+              </div>
+            </div>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="servicesDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Services</a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="servicesDropdown">
+            <div class="container">
+              <div class="row">
+                <div class="col-12 col-lg-4 order-1"><h3>Popular Services</h3></div>
+                <div class="col-12 col-lg-8 text-lg-right order-3 order-lg-2"><a href="/services" class="btn btn-sm btn-primary mt-lg-0 mt-4">View All Services</a></div>
+                <div class="col-12 order-2 order-lg-3">
+                  <div id="services-nav" class="menu-mega-menu-services-navigation-container"><ul id="menu-mega-menu-services-navigation" class="mega-nav three-col"><li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-188952"><a href="https://pinellas.gov/services/apply-for-hurricane-recovery-funds/">Apply for Hurricane Recovery Funds</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-53408"><a href="https://pinellas.gov/services/apply-for-a-building-permit/">Apply for a Building Permit</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-53409"><a href="https://pinellas.gov/services/apply-for-a-right-of-way-utilization-permit/">Apply for a Utilization Permit</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-53411"><a href="https://pinellas.gov/services/reclaimed-water-request/">Apply for Reclaimed Water Service</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-91106"><a href="https://contractorsearch.pcclb.com/">Find a Licensed Contractor</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-91107"><a href="https://kyz.pinellascounty.org/">Find Your Evacuation Zone</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-93398"><a href="https://new-pinellas-egis.opendata.arcgis.com/">View Maps (GIS)</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-38773"><a href="https://pinellas.gov/services/pay-a-utility-bill/">Pay A Utility Bill</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-38765"><a href="https://pinellas.gov/services/purchase-an-annual-parking-pass/">Pay for an Annual Parking Permit</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-49195"><a href="https://pinellas.gov/services/report-a-problem-in-your-community/">Report a Problem in Your Community</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-91109"><a href="https://pinellas.gov/building-inspections/">Request a Building Inspection</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-53410"><a href="https://pinellas.gov/services/request-lien-searches/">Request Lien Searches</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-91110"><a href="https://pinellas.gov/public-records/">Request Public Records</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-53418"><a href="https://pinellas.gov/services/request-a-speaker/">Request a Speaker</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-38766"><a href="https://pinellas.gov/services/reserve-a-campsite-or-picnic-shelter/">Reserve A Campground</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-programs menu-item-91111"><a href="https://pinellas.gov/programs/volunteers-in-pinellas/">Volunteer with Pinellas County</a></li>
+</ul></div>                </div>
+              </div>
+            </div>
+            </div>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="businessDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Business</a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="businessDropdown">
+            <div class="container">
+              <div class="row">
+                <div class="col-lg-4">   
+                  <h3>Permits, Inspections, and More</h3>
+                  <p>We are pleased to offer our citizens, businesses and visitors online access to permitting, inspection scheduling, fee payments and other services, 24 hours a day, seven days a week.</p>
+                  <a href="https://aca-prod.accela.com/pinellas/Default.aspx" class="btn btn-sm btn-primary" target="_blank">Visit The Portal</a>
+                </div>
+                <div class="col-lg-4 mt-4 mt-lg-0">  
+                  <h3>Online Services</h3>
+                  <div id="business-services-nav" class="menu-mega-menu-business-online-services-container"><ul id="menu-mega-menu-business-online-services" class="mega-nav"><li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-206520"><a href="https://pinellas.gov/services/apply-as-a-pinellas-county-vendor/">Apply to be a Pinellas County Vendor</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-55100"><a href="https://pinellas.gov/services/apply-for-a-zoning-change/">Apply for a Zoning Change</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-55098"><a href="https://pinellas.gov/services/temporary-power-commercial-application/">Apply for Commercial Temporary Power</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-55097"><a href="https://pinellas.gov/services/apply-for-contractor-reciprocity/">Apply for Contractor Reciprocity</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-55099"><a href="https://pinellas.gov/services/pay-tourist-development-tax/">Pay Tourist Development Tax</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-services menu-item-55095"><a href="https://pinellas.gov/services/register-state-license/">Register a State Contractor’s License</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-93399"><a href="https://new-pinellas-egis.opendata.arcgis.com/">View Maps (GIS)</a></li>
+</ul></div>                  <a href="/services" class="btn btn-sm btn-primary mt-3">View All Online Services</a>
+                </div>
+                <div class="col-lg-4 mt-4 mt-lg-0">
+                  <h3>Running a Business in Pinellas County</h3>
+                  <div id="business-running-nav" class="menu-mega-menu-running-a-business-container"><ul id="menu-mega-menu-running-a-business" class="mega-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-75260"><a href="https://pinellas.gov/occupational-licenses/">Occupational Licenses/Business Tax Receipts</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-56707"><a href="https://pinellas.gov/help-for-entrepreneurs/">Help for Entrepreneurs</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-56632"><a href="https://pinellas.gov/florida-small-business-development-center/">Florida Small Business Development Center</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-56642"><a href="https://pinellas.gov/chambers-of-commerce/">Chambers of Commerce</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-56656"><a href="https://pinellas.gov/commercial-property-search/">Commercial Property Search</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-56665"><a href="https://pinellas.gov/data-center/">Pinellas County Economic Development Data Center</a></li>
+</ul></div>                </div>
+              </div>
+            </div>
+            </div>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="governmentDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Government</a>
+              <div class="dropdown-menu dropdown-menu-left" aria-labelledby="governmentDropdown">
+                <div class="container ">
+                <div class="row">
+                <div class="col-lg-4">
+                  <h3>Commission Meetings</h3>
+                  <p class="mt-3 mb-0"><strong>Upcoming Meetings</strong></p>
+                                    <a class="d-flex align-items-center color-darkblue text-decoration-none" href="https://pinellas.gov/event/board-of-county-commissioners-work-session-agenda-briefing-71/">
+                    <div class="fa-3x">
+                      <span class="fa-layers fa-fw">
+                        <i class="fas fa-calendar "></i>
+                        <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-11 down-3" style="font-weight:500">8/20</span>
+                      </span>
+                    </div>
+                    <div class="event-item">
+                      <strong>Board of County Commissioners Work Session/Agenda Briefing</strong><br>
+                      August 20, 2026, 9:30 am<br>
+                    </div>
+                  </a>
+                  <hr class="my-1">
+                                    <a class="d-flex align-items-center color-darkblue text-decoration-none" href="https://pinellas.gov/event/notice-board-of-county-commissioners-attorney-client-session/">
+                    <div class="fa-3x">
+                      <span class="fa-layers fa-fw">
+                        <i class="fas fa-calendar "></i>
+                        <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-11 down-3" style="font-weight:500">8/20</span>
+                      </span>
+                    </div>
+                    <div class="event-item">
+                      <strong>NOTICE: Board of County Commissioners Attorney-Client Session</strong><br>
+                      August 20, 2026, 1:00 pm<br>
+                    </div>
+                  </a>
+                  <hr class="my-1">
+                   
+                  <small>Please Note:	Meeting agendas are posted approximately five days before the meeting. Order of agenda items may change.</small><br>
+                  <a href="/events/list/?tribe_eventcategory=2058" class="btn btn-primary btn-sm mt-3">View All BCC Meetings</a>
+                </div>
+                <div class="col-lg-8 mt-4 mt-lg-0">  
+                  <div class="row">
+                    <div class="col-lg-6">
+                      <h3>County Government</h3>
+                      <div id="government-nav" class="menu-mega-menu-government-nav-container"><ul id="menu-mega-menu-government-nav" class="mega-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-206528"><a href="https://pinellas.gov/citizens-guide-to-the-budget/">FY27 Proposed Budget</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-40078"><a href="https://pinellas.gov/pinellas-county-government-overview/">Government Overview</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-91420"><a href="https://pinellas.gov/about-pinellas-facts/">Fast Facts About Pinellas County</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-74252"><a href="https://pinellas.gov/county-government-a-to-z/">Local Government A-Z</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-38791"><a href="https://pinellas.gov/pinellas-county-board-of-county-commissioners/">Board of County Commissioners</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-72215"><a href="https://pinellas.gov/boards-councils-and-committees/">Boards, Councils, &#038; Committees</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-72216"><a href="https://pinellas.gov/special-districts/">Special Districts</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-39984"><a href="https://pinellas.gov/county-administrator/">County Administrator</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-122039"><a href="https://pinellas.gov/ordinances/">County Ordinances</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-89266"><a href="https://pinellas.gov/pinellas-county-organizational-chart/">Pinellas County Organizational Chart</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-75206"><a href="/my-neighborhood/">Unincorporated Pinellas</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-58428"><a href="https://pinellas.gov/constitutional-offices/clerk-of-the-circuit-court/">Clerk of the Circuit Court</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-47187"><a href="https://pinellas.gov/constitutional-offices/pinellas-county-property-appraiser/">Property Appraiser</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-47185"><a href="https://pinellas.gov/constitutional-offices/pinellas-county-sheriffs-office/">Sheriff</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-74253"><a href="https://pinellas.gov/other-government/pinellas-county-schools/">Pinellas County Schools</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-47184"><a href="https://pinellas.gov/constitutional-offices/pinellas-county-supervisor-of-elections/">Supervisor of Elections</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-47186"><a href="https://pinellas.gov/constitutional-offices/pinellas-county-tax-collector/">Tax Collector</a></li>
+</ul></div>                    </div>
+                    <div class="col-lg-6">
+                      <h3>Other Government</h3>
+                      <div id="othergovernment-nav" class="menu-mega-menu-other-government-nav-container"><ul id="menu-mega-menu-other-government-nav" class="mega-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-74247"><a href="https://pinellas.gov/municipalities-and-cities/">Municipalities and Cities</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-74248"><a href="https://pinellas.gov/legislative-delegation/">Legislative Delegation</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-74249"><a href="https://pinellas.gov/state/sixth-judicial-circuit-court/">Sixth Judicial Circuit Court</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-91594"><a href="https://pinellas.gov/state/public-defender-sixth-judicial-circuit/">Public Defender Sixth District</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-74250"><a href="https://pinellas.gov/state/office-of-the-state-attorney-sixth-judicial-circuit-of-florida/">State Attorney Sixth District</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-91627"><a href="https://pinellas.gov/state/district-six-medical-examiner-forensics-lab/">Medical Examiner/Forensics Lab</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-74251"><a href="https://pinellas.gov/state/florida-department-of-health-in-pinellas-county/">Florida Department of Health in Pinellas County</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-91597"><a href="https://pinellas.gov/state/florida-state-government/">Florida State Government</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-91595"><a href="https://pinellas.gov/state/florida-house-of-representatives/">Florida House of Representatives</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-91596"><a href="https://pinellas.gov/state/florida-senate/">Florida Senate</a></li>
+</ul></div>                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="visitDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Visit</a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="visitDropdown">
+                <div class="container ">
+                <div class="row">
+                <div class="col-lg-4">
+                  <h3>Visit St. Pete-Clearwater</h3>
+                  <iframe class="w-100 lazyload" data-src="https://www.youtube.com/embed/0TubIj37INg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen src="about:blank" data-load-mode="0"></iframe>
+                  <p>The tourism site <strong><a href="https://www.visitstpeteclearwater.com/">Visit St. Pete-Clearwater</a></strong> is the county’s main resource for visitors</p>
+                  <hr>
+                  <div class="d-flex align-items-center weatherBox">
+                    <div><div class="fa-3x"><span class="condition"></span></div><span class="temp"></span></div>
+                    <div class="ml-3">
+                      <strong class="conditiontext"></strong><br>
+                      <small><span class="conditionwind"></span></small>
+                    </div>
+                  </div>
+                  <hr>
+                  <div class="row text-small">
+                    <div class="col-12">
+                      <div id="visit-stpete-nav" class="menu-mega-menu-visit-st-pete-nav-container"><ul id="menu-mega-menu-visit-st-pete-nav" class="mega-nav two-col"><li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-38812"><a href="https://www.visitstpeteclearwater.com/all-editorial">Plan Your Visit</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-38809"><a href="https://www.visitstpeteclearwater.com/form/free-destination-magazine">Visitor Guide</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-75254"><a href="https://pinellas.gov/blueways/">Paddling Guide</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-75255"><a href="https://pinellas.gov/pinellas-county-trail-guide/">Pinellas Trail Guide</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-38807"><a href="https://pinellas.gov/artificial-reef-guide/">Reef Guide</a></li>
+</ul></div>                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4 mt-4 mt-lg-0">  
+                  <h3>Places To Go</h3>
+                  <div id="visit-places-nav" class="menu-mega-menu-places-to-go-container"><ul id="menu-mega-menu-places-to-go" class="mega-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-198853"><a href="https://pinellas.gov/parks/">Pinellas County Parks</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58398"><a href="https://pinellas.gov/beaches/">Beaches and Beach Access</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-66719"><a href="https://pinellas.gov/municipalities-and-cities/">Cities</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-75231"><a href="https://pinellas.gov/libraries/">Libraries</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58515"><a href="https://pinellas.gov/arts-in-pinellas-county/">The Arts</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58516"><a href="https://pinellas.gov/lodging-in-pinellas-county/">Where to Stay</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58517"><a href="https://pinellas.gov/getting-around-pinellas-county/">Getting Around</a></li>
+</ul></div>                  
+                  <h3 class="mt-5">Things To Do</h3>
+                  <div id="visit-things-nav" class="menu-mega-menu-things-to-do-container"><ul id="menu-mega-menu-things-to-do" class="mega-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58394"><a href="https://pinellas.gov/camping-information/">Camping Information</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58513"><a href="https://pinellas.gov/bicycle-lanes-sidewalks-and-trails/">Bike and Walking Trails</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-81124"><a href="https://pinellas.gov/pinellas-county-trail-guide/">Pinellas Trail Guide</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-58514"><a href="https://pinellas.gov/sports-and-sporting-events/">Sports and Sporting Events</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-topics menu-item-91443"><a href="https://pinellas.gov/topic/parks-recreation-culture-travel/culture-and-history/">Culture and History</a></li>
+</ul></div>                </div>
+                <div class="col-lg-4 mt-4 mt-lg-0">
+                                </div>
+              </div>
+            </div>
+            </div>
+          </li>
+          <li class="nav-item dropdown ml-lg-auto">
+            <a class="nav-link dropdown-toggle btn btn-secondary" style="font-weight: 400;font-size: 1.25rem;padding: 0.25rem 1rem;" href="#" id="iwanttoDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">I want to...</a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="iwanttoDropdown">
+            <div class="container">
+              <div class="row">
+                <div class="col-12 d-lg-flex flex-wrap flex-column" id="iwanttoContent">
+                  <div class="w-33"><h3 class="mb-1">Adopt</h3><a href="https://pinellas.gov/services/adopt-a-drain-form/" class="d-block">a Drain</a><a href="https://pinellas.gov/programs/adopt-a-park/" class="d-block">a Park</a><a href="https://pinellas.gov/adoption-center-dog-cat-adoptions/" class="d-block">a Pet</a><a href="https://pinellas.gov/pinellas-trail-adopt-a-mile-program/" class="d-block">a Mile of the Pinellas Trail</a><a href="https://pinellas.gov/programs/adopt-a-pond/" class="d-block">a Pond</a></div><div class="w-33"><h3 class="mb-1">Apply or Renew</h3><a href="https://pinellas.gov/applying-for-a-building-permit/" class="d-block">Building Permit</a><a href="https://pinellas.gov/services/apply-for-a-marriage-license/" class="d-block">Marriage License</a><a href="https://pinellas.gov/services/apply-for-a-passport/" class="d-block">Passport</a><a href="https://pinellas.gov/services/apply-for-a-tree-removal-habitat-permit/" class="d-block">Tree Removal/Habitat Permit</a><a href="https://pinellas.gov/services/apply-for-a-right-of-way-utilization-permit/" class="d-block">Utilization Permit</a><a href="https://pinellas.gov/services/apply-for-a-concession-vendor-permit/" class="d-block">Concession Vendor Authorization</a><a href="https://pinellas.gov/services/apply-for-hurricane-recovery-funds/" class="d-block">Hurricane Recovery Funds</a><a href="https://pinellas.gov/services/apply-or-renew-online-for-the-pinellas-county-health-program/" class="d-block">Pinellas County Health Program</a><a href="https://pinellas.gov/services/apply-as-a-pinellas-county-vendor/" class="d-block">Pinellas County Vendor</a></div><div class="w-33"><h3 class="mb-1">Contact</h3><a href="https://pinellas.gov/services/animal-services-contact-us-form/" class="d-block">Animal Services</a><a href="https://pinellas.gov/services/contact-building/" class="d-block">Building Services</a><a href="https://pinellas.gov/services/contact-housing-and-community-development/" class="d-block">Housing and Community Development</a><a href="https://pinellas.gov/services/contact-development-review-services/" class="d-block">Development Review Services</a><a href="https://pinellas.gov/services/contact-office-of-human-rights/" class="d-block">Office of Human Rights</a><a href="https://pinellas.gov/services/contact-parks-and-conservation-resources/" class="d-block">Parks and Conservation Resources</a><a href="https://pinellas.gov/services/contact-pinellas-county-utilities-customer-service/" class="d-block">Pinellas County Utilities Customer Service</a><a href="https://pinellas.gov/bcc-contact-form/" class="d-block">Board of County Commissioners</a><a href="https://pinellas.gov/services/contact-us-about-he-pinellas-county-access-portal/" class="d-block">Pinellas County Access Portal</a><a href="https://pinellas.gov/services/contact-zoning/" class="d-block">Zoning</a></div><div class="w-33"><h3 class="mb-1">Find</h3><a href="https://pinellas.gov/services/find-a-business-complaint-history/" class="d-block">Business Complaint History</a><a href="https://contractorsearch.pcclb.com/" class="d-block">Licensed Contractor</a><a href="https://pinellas.gov/services/find-a-property-owner/" class="d-block">Property Owner</a><a href="https://experience.arcgis.com/experience/eca0e234e9c24b239bee3026d2f529b7" class="d-block">Elevation Certificate</a><a href="https://phh.tbe.taleo.net/phh04/ats/careers/v2/searchResults?org=PCG&cws=47" class="d-block">County Jobs</a><a href="https://library.municode.com/fl/pinellas_county/codes/code_of_ordinances" class="d-block">County Ordinances</a><a href="https://www.mypinellasclerk.gov/Home/Jury-Services" class="d-block">Jury Duty Information</a><a href="https://pinellas.gov/services/access-mental-health-substance-use-and-addiction-treatment-services/" class="d-block"></a><a href="https://kyz.pinellascounty.org" class="d-block">Evacuation Zone</a></div><div class="w-33"><h3 class="mb-1">Pay</h3><a href="https://public.co.pinellas.fl.us/clbpayments/index.jsp" class="d-block">PCCLB Citation</a><a href="https://pinellas.gov/water-billing-payment-options/" class="d-block">Utility/Water Bill</a><a href="https://pinellas.gov/services/pay-an-ambulance-bill/" class="d-block">Ambulance Bill</a><a href="https://pinellas.gov/services/pay-code-enforcement-citations/" class="d-block">Code Enforcement Citations</a><a href="https://pinellas.gov/annual-parking-permits/" class="d-block">Annual Parking Permits</a><a href="https://pinellas.gov/services/pay-property-tax/" class="d-block">Property Tax</a><a href="https://pinellas.county-taxes.com/tourist" class="d-block">Tourist Development Tax</a><a href="https://pinellas.gov/services/pay-traffic-or-parking-ticket/" class="d-block">Traffic or Parking Ticket</a></div><div class="w-33"><h3 class="mb-1">Register</h3><a href="https://pinellas.gov/services/register-state-license/" class="d-block">State Contractor's License</a><a href="https://pinellas.gov/services/register-aed-placement/" class="d-block">AED Placement</a><a href="https://pinellas.gov/services/pinellas-county-florida-lobbyist-registration/" class="d-block">Lobbyist</a><a href="https://pinellas.gov/services/register-as-a-professional-mangrove-trimmer/" class="d-block">Professional Mangrove Trimmer</a><a href="https://pinellas.gov/special-needs/" class="d-block">Evacuation Assistance - Special Needs</a><a href="https://pinellas.gov/services/register-to-vote/" class="d-block">Vote</a><a href="https://pinellas.gov/services/register-vehicle/" class="d-block">Vehicle</a></div><div class="w-33"><h3 class="mb-1">Report</h3><a href="https://pinellas.gov/services/report-a-drainage-issue/" class="d-block">Drainage Issue</a><a href="https://pinellas.gov/services/report-a-problem-in-your-community/" class="d-block">Problem in Your Community</a><a href="https://pinellas.gov/services/report-a-sewer-issue/" class="d-block">Sewer Issue</a><a href="https://pinellas.gov/services/report-a-water-issue/" class="d-block">Water Issue </a><a href="https://pinellas.gov/services/report-an-ada-grievance/" class="d-block">ADA Grievance</a><a href="https://pinellas.gov/services/report-discrimination/" class="d-block">Discrimination</a><a href="https://fs30.formsite.com/Pinellas8/unlicensed/index.html" class="d-block">Unlicensed Contracting</a><a href="https://pinellas.gov/services/report-wage-theft/" class="d-block">Wage Theft</a></div><div class="w-33"><h3 class="mb-1">Request</h3><a href="https://pinellas.gov/services/request-911-call-transcripts-and-or-recordings/" class="d-block">9-1-1 Call Notes and/or Recordings</a><a href="https://pinellas.gov/services/request-a-site-plan-pre-application-meeting/" class="d-block">Site Plan Pre-Application Meeting</a><a href="https://pinellas.gov/services/request-a-title-search/" class="d-block">Title Search or Lien Payoff from Utilities</a><a href="https://pinellas.gov/services/request-a-utilities-connection/" class="d-block">Utilities Connection</a><a href="https://pinellas.gov/services/request-birth-certificate/" class="d-block">Birth Certificate</a><a href="https://pinellas.gov/services/request-lien-payoff-statement/" class="d-block">Lien Payoff Statement from Code Enforcement</a><a href="https://pinellas.gov/services/request-lien-searches/" class="d-block">Lien Searches</a><a href="https://pinellas.gov/mosquito-control#service" class="d-block">Mosquito Service</a><a href="https://pinellas.gov/public-records/" class="d-block">Public Records</a><a href="https://pinellas.gov/services/request-a-street-light-repair/" class="d-block">Street Light Repair</a><a href="https://pinellas.gov/services/request-utilities-service/" class="d-block">Utilities Service</a></div><div class="w-33"><h3 class="mb-1">Reserve</h3><a href="https://www.explore.pinellas.gov/" class="d-block">Campsite or Picnic Shelter</a><a href="https://pinellas.gov/services/apply-to-use-a-facility-for-a-wedding/" class="d-block">Facility for a Wedding</a></div><div class="w-33"><h3 class="mb-1">Submit</h3><a href="https://pinellas.gov/services/submit-a-central-permit-form/" class="d-block">Central Permit Form</a><a href="https://pinellas.gov/services/submit-a-code-complaint/" class="d-block">Code Complaint</a><a href="http://www.pcclb.com/pdf/complaintform.pdf" class="d-block">Complaint against a Contractor</a><a href="https://pinellas.gov/general-application/" class="d-block">General Job Application</a><a href="https://pinellas.gov/services/submit-a-habitat-complaint/" class="d-block">Habitat Complaint</a><a href="https://pinellas.gov/services/submit-a-protected-address-permit/" class="d-block">Protected Address Permit</a><a href="https://pinellas.gov/services/submit-a-public-accommodations-discrimination-questionnaire/" class="d-block">Public Accommodations Discrimination Complaint</a><a href="https://pinellas.gov/services/repaired-leak-statement-of-repair-form/" class="d-block">Statement of Repaired Leak</a><a href="https://pinellas.gov/services/submit-a-workers-compensation-waiver-request/" class="d-block">Workers Compensation Waiver Request Form</a><a href="https://pinellas.gov/services/submit-an-air-quality-complaint/" class="d-block">Air Quality Complaint</a></div><div class="w-33"><h3 class="mb-1">Volunteer</h3><a href="https://pinellas.gov/programs/volunteers-in-pinellas/" class="d-block">VIP Team Member</a><a href="https://pinellas.gov/volunteer-internships/" class="d-block">Internship</a><a href="https://pinellas.gov/services/volunteer-with-the-clerk-of-the-circuit-court/" class="d-block">Clerk of the Circuit Court</a></div>                </div>
+              </div>
+            </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      </div>
+    </nav>
+
+  </div><!-- #wrapper-navbar end -->
+
+  <div id="breadcrumb-container">
+    <div class="container">
+      <div class="row">
+        <div class="col-12">
+          <span><span><a href="https://pinellas.gov/">Home</a></span>  /  <span><a href="https://pinellas.gov/programs/">Programs</a></span>  /  <span class="breadcrumb_last" aria-current="page"><strong>Home Repair &#038; Independent Living Programs</strong></span></span>        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+
+<!-- get the departments and topics for gtm -->
+<!-- send the vars to gtm -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  dataLayer.push({
+    'event':'customEvent',
+    'department': ["housing-and-community-development","community-development"],
+    'topic': ["community-planning","community-development-community-planning","home-property","owning-a-home"],
+  });
+</script>
+<!-- /send the vars to gtm -->
+<!-- /get the departments and topics for gtm -->
+
+
+<main id='theme-main'><div class="container mt-10">
+    <div class="row">
+        <div id="section-sidebar" class="col-lg-3 order-2  order-lg-1">
+                                                    
+    <aside class="widget widget_topics">
+        <h3>Departments</h3>
+        <ul>
+            <li><a href="/department/housing-and-community-development">Housing and Community Development Department</a></li><li class="childterm"><a href="/department/community-development">Community Development Division</a></li>        </li>
+        </ul>
+    </aside>
+
+    <aside class="widget widget_topics">
+        <h3>Topics</h3>
+        <ul>
+            <li><a href="/topic/community-planning">Community Planning</a></li><li class="childterm"><a href="/topic/community-development-community-planning">Community Development</a></li><li><a href="/topic/home-property">Home &amp; Property</a></li><li class="childterm"><a href="/topic/owning-a-home">Owning a Home</a></li>        </ul>
+    </aside>
+    <aside class="widget widget_topics">
+        <h3>Contact Information</h3>
+                    <div class="contact_entry">
+            
+            <p><strong>Planning<br />
+</strong>310 Court Street<br />
+1st Floor<br />
+Clearwater, Florida 33756<br />
+(727) 464-8200<br />
+Fax: (727) 464-8201</p>
+<p><strong>Community Development<br />
+</strong>440 Court Street<br />
+2nd Floor<br />
+Clearwater, Florida 33756<br />
+(727) 464-8210<br />
+Fax: (727) 464-8454<br />
+<a href="https://pinellas.gov/services/contact-housing-and-community-development/">Contact</a> &#8211; <a class="" href="https://goo.gl/maps/ikjtH7f1KdHAs8XMA" target="_blank" rel="noopener">Map</a></p>
+<hr />
+                                                                            </div>
+                    <div class="contact_entry">
+            
+            <p><strong>Community Development<br />
+</strong>440 Court Street<br />
+2nd Floor<br />
+Clearwater, Florida 33756<br />
+(727) 464-8210<br />
+Fax: (727) 464-8454<br />
+<a href="https://pinellas.gov/services/contact-housing-and-community-development/">Contact</a> &#8211; <a class="" href="https://goo.gl/maps/ikjtH7f1KdHAs8XMA" target="_blank" rel="noopener">Map</a></p>
+<hr />
+<p><strong>Planning<br />
+</strong>310 Court Street<br />
+1st Floor<br />
+Clearwater, Florida 33756<br />
+(727) 464-8200<br />
+Fax: (727) 464-8201<br />
+<a href="https://pinellas.gov/services/contact-zoning/">Contact</a> &#8211; <a class="" href="http://goo.gl/maps/epWRm" target="_blank" rel="noopener">Map</a></p>
+<hr />
+<p><strong>DRS</strong><br />
+440 Court Street<br />
+3rd Floor<br />
+Clearwater, Florida 33756<br />
+<a href="https://pinellas.gov/services/contact-development-review-services/">Contact</a> &#8211; <a class="" href="http://www.pinellascounty.org/drs/phone-numbers.htm#zoning" target="_blank" rel="noopener">Phones</a></p>
+<hr />
+<p><strong>Permit Technicians</strong><br />
+(727) 464-3401 &#8211; voice mail</p>
+<hr />
+<p><strong>Board of Adjustment and Appeals</strong><br />
+(727) 464-5047 &#8211; voice mail only</p>
+                                                                            </div>
+         
+    </aside>
+                    </div>
+        <div id="section-content" class="col-lg-9 order-1  order-lg-2">
+            <h1>Home Repair &#038; Independent Living Programs</h1>
+
+                                                <div class="wp-block-image">
+<figure class="alignright size-full is-resized"><img fetchpriority="high" decoding="async" width="283" height="302" src="https://pinellas.gov/wp-content/uploads/2021/06/Equal-Housing-Logo.gif" alt="Equal Housing Logo" class="wp-image-6144" style="width:142px;height:151px"/></figure>
+</div>
+
+
+<p class="wp-block-paragraph"><a href="https://pinellas.gov/programs/programas-de-prestamo-para-la-reparacion-de-viviendas-y-de-vida-independiente-revision-in-progress/">En Español</a></p>
+
+
+
+<p class="has-red-color has-text-color has-link-color wp-elements-594a78ae236341f34c4c97c420b037b0 wp-block-paragraph"><strong>UPDATE (5/4/2026): The County’s Home Repair Program has CLOSED to new applications as of 5 p.m. 5/4/2026. </strong></p>
+
+
+
+<h4 class="wp-block-heading">Fully forgivable loan up to $75,000 now available.</h4>
+
+
+
+<p class="wp-block-paragraph">To help locals stay in their homes and maintain their property, Pinellas County has revised its state-funded Home Repair Program by increasing financial help up to $75,000 for critical needs like <strong>roofs, windows and AC replacements.</strong></p>
+
+
+
+<p class="wp-block-paragraph">This vital support now comes in the form of a <strong>fully forgivable loan</strong>. That means homeowners planning to sustain roots in Pinellas will <strong>not be required to pay back the loan nor make any monthly payments </strong>as long as the home is their primary residence.</p>
+
+
+
+<p class="wp-block-paragraph">The County offers two programs for homeowners who need major home repairs and/or improvements to make their home more accessible.</p>
+
+
+
+<h5 class="wp-block-heading"><strong>Home Repair Loan: Up to $75K for major home repairs</strong></h5>
+
+
+
+<p class="wp-block-paragraph">If you make <strong>$58,450</strong> or less a year as an individual ($83,450 for a family of four), you may qualify for a&nbsp;loan up to $75,000 to make repairs&nbsp;like roofs, windows, exterior doors, HVAC, and housing code-related improvements.</p>
+
+
+
+<h5 class="wp-block-heading"><strong>Independent Living Program: Up to $20K grant for accessibility improvements</strong></h5>
+
+
+
+<p class="wp-block-paragraph">Homeowners who need&nbsp;accessibility modifications can also qualify for an additional $20,000 grant&nbsp;in conjunction with the Home Repair Loan Program, including grab bars, walk-in showers, wheelchair ramps, and door widening. To be eligible for the grant, applicant must be able to demonstrate need, such as permanent physical impairment and/or the loss of one or more life functions requiring the use of prosthetic equipment, a walker, or a wheelchair.&nbsp;</p>
+
+
+
+<h3 class="wp-block-heading"><strong>How to Apply</strong></h3>
+
+
+
+<p class="wp-block-paragraph">To apply for both programs, register through our&nbsp;<a href="https://portal.neighborlysoftware.com/pinellascountyfl/Participant/Login" target="_blank" rel="noreferrer noopener">application portal</a>, but FIRST make sure you meet all the following eligibility requirements and collect the required documents (see below): &nbsp;</p>
+
+
+
+<ul class="wp-block-list">
+<li>Applicant must occupy the home as their <strong>primary residence</strong>.</li>
+
+
+
+<li>Assessed Value for the home <a href="https://www.pcpao.gov/quick-search?qu=1">per the Property Appraiser</a> <strong>cannot exceed $375,000.</strong></li>
+
+
+
+<li><strong>Program is only available in Pinellas County</strong>, excluding properties located within the city limits of: Belleair Shore, Clearwater, Largo and St. Petersburg (if you live in these cities, check their websites for alternative programs).</li>
+
+
+
+<li>You will <strong>not be eligible if your mortgage is currently past due</strong> or has been past due in the six months.</li>
+
+
+
+<li>Your household <strong>cannot earn more 80% of the Area Median Income, </strong>which is $58,450 for an individual.<strong> See max income limits below or view eligible <a href="https://pinellas.gov/pinellas-county-2021-income-limits/">annual income</a> limits:</strong></li>
+</ul>
+
+
+
+<figure class="wp-block-table"><table><tbody><tr><td><strong>Family Size </strong></td><td><strong>1 Person</strong></td><td><strong>2 Persons</strong></td><td><strong>3 Persons</strong></td><td><strong>4 Persons</strong></td><td><strong>5 Persons</strong></td><td><strong>6 Persons</strong></td><td><strong>7 Persons</strong></td><td><strong>8 Persons</strong></td></tr><tr><td><strong>Maximum Annual Income</strong></td><td>$58,450</td><td>$66,800</td><td>$75,150</td><td>$83,450</td><td>$90,150</td><td>$96,850</td><td>$103,500</td><td>$110,200</td></tr></tbody></table></figure>
+
+
+
+<h3 class="wp-block-heading"><strong>Eligible Improvements</strong> </h3>
+
+
+
+<h4 class="wp-block-heading"><strong>Home Repair Loan Program </strong></h4>
+
+
+
+<ul class="wp-block-list">
+<li>Roof – including soffit/fascia</li>
+
+
+
+<li>Windows and exterior doors</li>
+
+
+
+<li>Air conditioning/heating</li>
+
+
+
+<li>Housing Code related electrical upgrades</li>
+
+
+
+<li>Full program and eligibility information is available in the&nbsp;<a href="https://pinellas.gov/home-repair-loan-program-information-statement/" target="_blank" rel="noreferrer noopener">Home Repair Program Information Statement</a>.</li>
+</ul>
+
+
+
+<h4 class="wp-block-heading"><strong>Independent Living Program </strong></h4>
+
+
+
+<ul class="wp-block-list">
+<li>Wheelchair ramps</li>
+
+
+
+<li>Railing</li>
+
+
+
+<li>Bathroom grab bars</li>
+
+
+
+<li>Tub to shower conversions</li>
+
+
+
+<li>Walk-in or roll-in showers</li>
+
+
+
+<li>ADA-approved toilets</li>
+
+
+
+<li>Door widening</li>
+
+
+
+<li>Other improvements to promote barrier-free housing.</li>
+</ul>
+
+
+
+<h4 class="wp-block-heading"><strong>Required Documents</strong></h4>
+
+
+
+<p class="wp-block-paragraph"><strong>Applications are time sensitive: </strong>Applicants are encouraged to submit within 30 days for priority processing<strong>.</strong> It is strongly recommended you collect the following documents before you start your application:</p>
+
+
+
+<ol class="wp-block-list">
+<li><strong>Income documents</strong>, such as paystubs, Social Security award letter, pension statement, etc.; tax statements are only permitted if the applicant is self-employed.</li>
+
+
+
+<li><strong>Bank statements</strong> (2 months checking; 1 month savings), including all pages and all accounts.</li>
+
+
+
+<li><a><strong>Homeowner’s Insurance Declaration Page</strong></a> (for Home Repair Loan only). If you do not have insurance, call Pinellas County Community Development before starting your application at (727) 464-8251.</li>
+</ol>
+
+
+
+<h4 class="wp-block-heading"><strong>Application details and timeline &nbsp;</strong></h4>
+
+
+
+<p class="wp-block-paragraph">To submit an application for the Home Repair Loan Program or the Independent Living Program, eligible homeowners must log into the&nbsp;<a href="https://portal.neighborlysoftware.com/pinellascountyfl/Participant/Login" target="_blank" rel="noreferrer noopener">application portal</a>.</p>
+
+
+
+<p class="wp-block-paragraph">Review the<a href="https://pinellas.gov/homeowner-guide-for-housing-rehabilitation-applications/" target="_blank" rel="noreferrer noopener">&nbsp;Homeowner Guide for Housing Rehabilitation Applications</a>&nbsp;for instructions on how to register an account and to submit an application.</p>
+
+
+
+<p class="wp-block-paragraph">Community Development staff will review applications on a first completed, first served basis. The average time from completed application submission to work starting is 90 days. </p>
+
+
+
+<p class="wp-block-paragraph">For more information or application help, call Pinellas County Community Development at (727) 464-8251 or&nbsp;<a href="https://pinellas.gov/services/contact-housing-and-community-development/">submit our contact form</a>.</p>
+
+
+
+<h3 class="wp-block-heading"><strong>Additional Resources</strong></h3>
+
+
+
+<ul class="wp-block-list">
+<li><a rel="noopener" href="http://www.energystar.gov" target="_blank">Energy Star Program</a></li>
+
+
+
+<li><a rel="noreferrer noopener" href="https://pinellas.gov/foreclosure-information/" target="_blank">Foreclosure Prevention Information</a></li>
+
+
+
+<li><a href="https://www.fanniemae.com/">Fannie Mae resources for housing education and information</a></li>
+</ul>
+        </div>
+    </div>
+</div>
+</main>
+
+<footer class="site-footer small">
+
+	<img data-src="/wp-content/themes/pinellas-county/img/wave.svg" class="w-100 lazyload" id="wave-bottom" alt="Ocean Wave for Bottom of Web Page" aria-hidden="true" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==">
+				<div class="wrapper bg-primary text-white pb-8" id="wrapper-footer-widgets">
+		
+		<div class="container">
+			
+			<div class="row">
+				<div id="media_image-2"  class="col-lg-2 widget footer-widget widget_media_image this"><img width="640" height="640" data-src="https://pinellas.gov/wp-content/uploads/2021/08/logo.svg" class="image wp-image-26216  attachment-large size-large lazyload" alt="Pinellas County Logo" style="--smush-placeholder-width: 640px; --smush-placeholder-aspect-ratio: 640/640;max-width: 100%; height: auto;" decoding="async" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" /></div><!-- .footer-widget --><div id="text-5"  data-animation-event="enters"  class="extendedwopts-col col-md-12 col-sm-12 col-xs-12 col-lg-3 mt-6 widget footer-widget widget_text this"><h3 class="widget-title">Stay Connected</h3>			<div class="textwidget"><p>Enter your email address to stay updated on the latest county news, events and opportunities.</p>
+
+                <div class='gf_browser_chrome gform_wrapper gravity-theme gform-theme--no-framework' data-form-theme='gravity-theme' data-form-index='0' id='gform_wrapper_1' ><div id='gf_1' class='gform_anchor' tabindex='-1'></div><form method='post' enctype='multipart/form-data' target='gform_ajax_frame_1' id='gform_1'  action='/programs/home-repair-loan-program/#gf_1' data-formid='1' novalidate>
+                        <div class='gform-body gform_body'><div id='gform_fields_1' class='gform_fields top_label form_sublabel_below description_below validation_below'><div id="field_1_2" class="gfield gfield--type-honeypot gform_validation_container field_sublabel_below gfield--has-description field_description_below field_validation_below gfield_visibility_visible"  ><label class='gfield_label gform-field-label' for='input_1_2'><span class='gform-field-label__text'>URL</span></label><div class='ginput_container'><input name='input_2' id='input_1_2' type='text' value='' autocomplete='new-password'/></div><div class='gfield_description' id='gfield_description_1_2'>This field is for validation purposes and should be left unchanged.</div></div><div id="field_1_1" class="gfield gfield--type-email gfield--input-type-email field_sublabel_below gfield--no-description field_description_below field_validation_below gfield_visibility_visible"  ><label class='gfield_label gform-field-label' for='input_1_1'><span class='gform-field-label__text'>Email Address</span></label><div class='ginput_container ginput_container_email'>
+                            <input name='input_1' id='input_1_1' type='email' value='' class='medium'   placeholder='name@domain.com'  aria-invalid="false"  />
+                        </div></div></div></div>
+        <div class='gform-footer gform_footer top_label'> <button type='submit' id='gform_submit_button_1' class='gform_button button' onclick='gform.submission.handleButtonClick(this);' data-submission-type='submit' >Sign Up</button> <input type='hidden' name='gform_ajax' value='form_id=1&amp;title=&amp;description=&amp;tabindex=0&amp;theme=gravity-theme&amp;styles=[]&amp;hash=82a9b355ba0e048334d2ab85cd90d55a' />
+            <input type='hidden' class='gform_hidden' name='gform_submission_method' data-js='gform_submission_method_1' value='iframe' />
+            <input type='hidden' class='gform_hidden' name='gform_theme' data-js='gform_theme_1' id='gform_theme_1' value='gravity-theme' />
+            <input type='hidden' class='gform_hidden' name='gform_style_settings' data-js='gform_style_settings_1' id='gform_style_settings_1' value='[]' />
+            <input type='hidden' class='gform_hidden' name='is_submit_1' value='1' />
+            <input type='hidden' class='gform_hidden' name='gform_submit' value='1' />
+            
+            <input type='hidden' class='gform_hidden' name='gform_currency' data-currency='USD' value='++P/PywP8qyGWCcMFY5taesyoVTGDO8TpFW+6gFyHIHrw5If6oEiAg0OvMgenaZIWPgvE26M9X37hcPGg/89kxXpJtQBIejjVl5yYw7Lr0KupUU=' />
+            <input type='hidden' class='gform_hidden' name='gform_unique_id' value='' />
+            <input type='hidden' class='gform_hidden' name='state_1' value='WyJ7XCJnZm9ybV9zdWJtaXNzaW9uX21ldGhvZFwiOltcIjgzYmY3NDkxYWJiNDYxYzJjN2U0MGZjMjdmYzA3YjE3XCIsXCJiNDljYzYxOGEyMTY2NjE1OWYzMzVmMGMwOGRhMzFiOFwiLFwiZWNiNGZkMjQzNGRhNzE5NTFhNzIwYWQ5MzA4YjNhN2FcIl0sXCJnZm9ybV90aGVtZVwiOlwiYTk4ZWFmNGI4YTMzOTVmZmRiYTk3YWNhODI2YzUzNTZcIixcImdmb3JtX3N0eWxlX3NldHRpbmdzXCI6XCI0NzQzMDdmNWM1MmJhZGM1ZThlZGFkMGFlZTdhZTNiYVwiLFwiZm9ybV9pZFwiOlwiMzkyMmRlYjRlOWJhZmM1YTJmNTZlNjlkM2IzNmFkZjNcIixcInVybFwiOlwiMWNhNTYxZGI1OGNhMzFmMGE2OGIyN2NiOGY4NTdiOGFcIixcInN0YXRlX3RpbWVzdGFtcFwiOlwiM2Y4YWQ3NjZkNDMwYTg1ZGRjNDExOWYzODc2MTQxOTFcIn0iLCI2NjVkN2FmNDgwOGY3NzExODhjMGU1OGI3NzIyM2ViYSIsMTc4NzIzNDU0OF0=' />
+            <input type='hidden' autocomplete='off' class='gform_hidden' name='gform_target_page_number_1' id='gform_target_page_number_1' value='0' />
+            <input type='hidden' autocomplete='off' class='gform_hidden' name='gform_source_page_number_1' id='gform_source_page_number_1' value='1' />
+            <input type='hidden' name='gform_field_values' value='' />
+            
+        </div>
+                        </form>
+                        </div>
+		                <iframe style='display:none;width:100%;height:0px;' src='about:blank' name='gform_ajax_frame_1' id='gform_ajax_frame_1' title='This iframe contains the logic required to handle Ajax powered Gravity Forms.'></iframe>
+		                <script>
+gform.initializeOnLoaded( function() {jQuery('#gform_ajax_frame_1').on('load',function(){var contents = jQuery(this).contents().find('*').html();var is_postback = contents.indexOf('GF_AJAX_POSTBACK') >= 0;if(!is_postback){return;}var form_content = jQuery(this).contents().find('#gform_wrapper_1');var is_confirmation = jQuery(this).contents().find('#gform_confirmation_wrapper_1').length > 0;var is_redirect = contents.indexOf('gformRedirect(){') >= 0;var is_form = form_content.length > 0 && ! is_redirect && ! is_confirmation;var mt = parseInt(jQuery('html').css('margin-top'), 10) + parseInt(jQuery('body').css('margin-top'), 10) + 100;if(is_form){jQuery('#gform_wrapper_1').html(form_content.html());if(form_content.hasClass('gform_validation_error')){jQuery('#gform_wrapper_1').addClass('gform_validation_error');} else {jQuery('#gform_wrapper_1').removeClass('gform_validation_error');}setTimeout( function() { /* delay the scroll by 50 milliseconds to fix a bug in chrome */ jQuery(document).scrollTop(jQuery('#gform_wrapper_1').offset().top - mt); }, 50 );var current_page = jQuery('#gform_source_page_number_1').val();jQuery(document).trigger('gform_page_loaded', [1, current_page]);window['gf_submitting_1'] = false;}else if(!is_redirect){var confirmation_content = jQuery(this).contents().find('.GF_AJAX_POSTBACK').html();if(!confirmation_content){confirmation_content = contents;}jQuery('#gform_wrapper_1').replaceWith(confirmation_content);jQuery(document).scrollTop(jQuery('#gf_1').offset().top - mt);jQuery(document).trigger('gform_confirmation_loaded', [1]);window['gf_submitting_1'] = false;wp.a11y.speak(jQuery('#gform_confirmation_message_1').text());}else{jQuery('#gform_1').append(contents);if(window['gformRedirect']) {gformRedirect();}}jQuery(document).trigger("gform_pre_post_render", [{ formId: "1", currentPage: "current_page", abort: function() { this.preventDefault(); } }]);        if (event && event.defaultPrevented) {                return;        }        const gformWrapperDiv = document.getElementById( "gform_wrapper_1" );        if ( gformWrapperDiv ) {            const visibilitySpan = document.createElement( "span" );            visibilitySpan.id = "gform_visibility_test_1";            gformWrapperDiv.insertAdjacentElement( "afterend", visibilitySpan );        }        const visibilityTestDiv = document.getElementById( "gform_visibility_test_1" );        let postRenderFired = false;        function triggerPostRender() {            if ( postRenderFired ) {                return;            }            postRenderFired = true;            gform.core.triggerPostRenderEvents( 1, current_page );            if ( visibilityTestDiv ) {                visibilityTestDiv.parentNode.removeChild( visibilityTestDiv );            }        }        function debounce( func, wait, immediate ) {            var timeout;            return function() {                var context = this, args = arguments;                var later = function() {                    timeout = null;                    if ( !immediate ) func.apply( context, args );                };                var callNow = immediate && !timeout;                clearTimeout( timeout );                timeout = setTimeout( later, wait );                if ( callNow ) func.apply( context, args );            };        }        const debouncedTriggerPostRender = debounce( function() {            triggerPostRender();        }, 200 );        if ( visibilityTestDiv && visibilityTestDiv.offsetParent === null ) {            const observer = new MutationObserver( ( mutations ) => {                mutations.forEach( ( mutation ) => {                    if ( mutation.type === 'attributes' && visibilityTestDiv.offsetParent !== null ) {                        debouncedTriggerPostRender();                        observer.disconnect();                    }                });            });            observer.observe( document.body, {                attributes: true,                childList: false,                subtree: true,                attributeFilter: [ 'style', 'class' ],            });        } else {            triggerPostRender();        }    } );} );
+</script>
+
+<p class="very-small mt-2 mb-0 font-italic">Under Florida law, e-mail addresses are public records. If you do not want your e-mail address released in response to a public records request, do not send electronic mail to this entity. Instead, contact this office by phone or in writing.</p>
+</div>
+		</div><!-- .footer-widget --><div id="text-3"  data-animation-event="enters"  class="extendedwopts-col col-md-12 col-sm-12 col-xs-12 col-lg-3 mt-6 widget footer-widget widget_text this"><h3 class="widget-title">Report An Issue</h3>			<div class="textwidget"><p>See a problem in your community? Report it to Pinellas County Government using the web page below or via our mobile app.</p>
+<div class="d-flex justify-content-start justify-content-lg-between">
+<div><strong>Download Mobile App</strong><br />
+<a href="https://itunes.apple.com/us/app/pinellas-county/id913565431?mt=8"><img decoding="async" class="mt-1 lazyload" data-src="/wp-content/themes/pinellas-county/img/icon-apple.svg" alt="Apple Icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" /></a> <a href="https://play.google.com/store/apps/details?id=com.seeclickfix.pinellascounty.app"><img decoding="async" class="mt-1 ml-2 lazyload" data-src="/wp-content/themes/pinellas-county/img/icon-android.svg" alt="Android Icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" /></a></div>
+<div class="ml-3 ml-lg-0"><strong>Report Online</strong><br />
+<a href="https://seeclickfix.com/web_portal/Sed47QcE6KStPiNrih3RJLnQ/issues/map?lat=27.906228226523897&amp;lng=-82.72368692343774&amp;max_lat=27.955211927931803&amp;max_lng=-82.63100624084474&amp;min_lat=27.857213931402992&amp;min_lng=-82.81640052795412&amp;zoom=14"><img decoding="async" class="mt-1 lazyload" data-src="/wp-content/themes/pinellas-county/img/icon-world.svg" alt="World Icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" /></a></div>
+</div>
+<h3 class="widget-title mt-4" style="font-size: 14px;">Sign up for Alert Pinellas emergency notifications.</h3>
+<p><a class="btn btn-default w-100" href="https://member.everbridge.net/453003085614894/login"><img decoding="async" style="--smush-placeholder-width: 1257px; --smush-placeholder-aspect-ratio: 1257/180;width: 140px;" data-src="/wp-content/themes/pinellas-county/img/logo-alertpinellas.png" alt="Visit Alert Pinellas to sign up for notifications." src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" class="lazyload" /></a></p>
+</div>
+		</div><!-- .footer-widget --><div id="custom_html-2"  data-animation-event="enters"  class="widget_text extendedwopts-col col-md-12 col-sm-12 col-xs-12 col-lg-3 mt-6 widget footer-widget widget_custom_html this"><h3 class="widget-title">Contact Us</h3><div class="textwidget custom-html-widget"><style>
+#cust-twitter-icon img { /* custom twitter icon */
+    width: 25px;
+    height: 25px;
+    margin: -20px 3px 0px 3px;
+}
+</style>
+
+<p>Open 8 a.m. to 5 p.m., Monday to Friday.<br>After hours, please leave message.</p>
+<p>(727) 464-3000<br>
+(727) 464-4062 TDD<br><a href="/contact-information-and-location-maps/" class="text-white">Phone Numbers and Office Locations
+</a></p>
+	<p><a class="btn btn-danger d-block" id="livechatbtn" href="#" onclick="lhnJsSdk.openHOC();return false;" title="Chat live with the County Information Desk.">Live Chat <i class="fas fa-comments-alt"></i></a></p>
+
+<!--start http://www.livehelpnow.net  -->    
+<script type="text/javascript">
+  window.addEventListener('DOMContentLoaded', function () {
+    const departmentEntry = window.dataLayer?.find(obj => obj.department);
+    const dept = departmentEntry?.department || "";
+
+    // Suppress chat if department is HR or Utilities
+    if (dept.includes('human-resources') || dept.includes('utilities')) {
+      const chatbtn = document.getElementById("livechatbtn");
+      if (chatbtn) {
+        chatbtn.remove(); // 🧹 cleanly remove the entire button
+      }
+      return; // Skip loading the LiveHelpNow widget
+    }
+
+    // ✅ Load LiveHelpNow if department is allowed
+    window.lhnJsSdkInit = function () {
+      lhnJsSdk.setup = {
+        application_id: "224d5160-818f-40d9-b5ff-0afa25d7faae",
+        application_secret: "rgmkjeohuz95je9i2xmjjjrxm8civcvw8dbk2hserw6kmc5h8t"
+      };
+      lhnJsSdk.controls = [{
+        type: "hoc",
+        id: "0282d2df-1a67-4739-a83e-8ef1f5905d99"
+      }];
+      lhnJsSdk.options = {
+        tracking: true,
+        hideButtonWhenOpen: true,
+      };
+    };
+
+    (function (d, s) {
+      var newjs, lhnjs = d.getElementsByTagName(s)[0];
+      newjs = d.createElement(s);
+      newjs.src = "https://developer.livehelpnow.net/js/sdk/lhn-jssdk-current.min.js";
+      lhnjs.parentNode.insertBefore(newjs, lhnjs);
+    }(document, "script"));
+  });
+</script>
+<!--end http://www.livehelpnow.net  -->
+<p>
+	
+<a href="https://www.facebook.com/PinellasGov/" class="social-link text-white" aria-label="Pinellas County Government on Facebook"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
+<a id="cust-twitter-icon" class="locFooter" aria-label="Pinellas County Government on X" href="https://twitter.com/PinellasGov" target="_blank"><img data-src="/wp-content/uploads/2024/09/twitter-x-logo-white-round.svg" alt="" aria-hidden="true" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" class="lazyload"></a>
+<a href="https://www.youtube.com/@PinellasGov" class="social-link text-white ml-2" aria-label="Pinellas County Government on YouTube"><i class="fab fa-youtube" aria-hidden="true"></i></a>
+<a href="https://www.instagram.com/PinellasGov/" class="social-link text-white ml-2" aria-label="Pinellas County Government on Instagram"><i class="fab fa-instagram" aria-hidden="true"></i></a>
+<a href="https://nextdoor.com/agency-detail/fl/pinellas-county/pinellas-county-government/" class="social-link text-white ml-2" aria-label="Pinellas County Government on Nextdoor" style="font-size: .82rem;top: -4px;"><i class="fak fa-nextdoor-logo-white" aria-hidden="true"></i></a>	
+	
+<br>
+<br>
+<a class="text-white" href="/social-networking">View All Social Accounts</a></p></div></div><!-- .footer-widget -->			</div>
+			<div class="row">
+				<div class="offset-lg-2 col-lg-9">
+					<div id="gov-offices-container" class="mt-4 pt-4">
+						<h3>Government Offices</h3>
+						<div id="gov-offices" class="menu-government-offices-container"><ul id="menu-government-offices" class="gov-footer-nav"><li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26227"><a href="https://pinellas.gov/department/animal-services/">Animal Services Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26338"><a href="https://pinellas.gov/department/building-and-development-review-services/">Building and Development Review Services Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26233"><a href="https://pinellas.gov/department/business-technology-services/">Business Technology Services</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26237"><a href="https://www.mypinellasclerk.org/">Clerk of the Circuit Court</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26231"><a href="https://pinellas.gov/department/code-enforcement/">Code Enforcement Division</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26339"><a href="https://pinellas.gov/department/communications/">Communications Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26278"><a href="https://pinellas.gov/department/contractor-licensing/">Contractor Licensing / PCCLB</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-82421"><a href="https://pinellas.gov/county-administrator/">County Administrator</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-86144"><a href="https://pinellas.gov/department/county-attorney/">County Attorney</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26273"><a href="https://www.jud6.org/">Courts: 6th Judicial Circuit</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26276"><a href="https://www.pced.org/">Economic Development (PCED)</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26240"><a href="https://pinellas.gov/department/emergency-management/">Emergency Management Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-116066"><a href="https://pinellas.gov/department/energy-water-conservation/">Energy and Water Conservation Program</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-116065"><a href="https://pinellas.gov/department/enterprise-asset-management/">Enterprise Asset Management Program</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26251"><a href="https://pinellas.gov/department/environmental-management/">Environmental Management Division</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26226"><a href="https://pinellas.gov/department/facilities-and-real-property/">Facilities and Real Property Divisions</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-70747"><a href="https://www.myfloridahouse.gov">Florida House of Representatives</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-70748"><a href="https://www.flsenate.gov">Florida Senate</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-70746"><a href="http://www.myflorida.com">Florida State Government</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26275"><a href="https://forwardpinellas.org/">Forward Pinellas</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26241"><a href="https://pinellas.gov/department/housing-and-community-development/">Housing and Community Development Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26242"><a href="https://pinellas.gov/department/housing-finance-authority-of-pinellas-county/">Housing Finance Authority</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26243"><a href="https://pinellas.gov/department/human-resources/">Human Resources</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26244"><a href="https://pinellas.gov/department/human-services/">Human Services Department</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26269"><a href="https://forensics.pinellas.gov/default.htm">Medical Examiner</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-38847"><a href="https://pinellas.gov/department/consumer-protection/">Office of Consumer Protection</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26245"><a href="https://pinellas.gov/department/office-of-human-rights/">Office of Human Rights</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26341"><a href="https://pinellas.gov/department/management-and-budget/">Office of Management and Budget</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-116064"><a href="https://pinellas.gov/department/fleet-asset-management/">Office of Fleet and Asset Management</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26252"><a href="https://pinellas.gov/department/parks-and-preserves/">Parks &amp; Conservation Resources Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-99739"><a href="https://pinellas.gov/department/pinellas-county-extension/">Pinellas County Extension</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26262"><a href="https://pinellas.gov/department/planning/">Planning Division</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-39178"><a href="https://www.pcpao.gov/">Property Appraiser</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26274"><a href="https://flpd6.gov">Public Defender</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26253"><a href="https://pinellas.gov/department/public-works/">Public Works Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26266"><a href="https://pinellas.gov/department/purchasing-division/">Purchasing</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-65403"><a href="https://pinellas.gov/department/safety-and-emergency-services/">Safety &#038; Emergency Services</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-100980"><a href="https://www.pcsb.org/Page/1653">School Board</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-39175"><a href="https://www.pcsoweb.com/">Sheriff</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-26271"><a href="https://pinellas.gov/special-magistrates/">Special Magistrates</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26258"><a href="https://pinellas.gov/department/solid-waste/">Solid Waste Department</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-26234"><a href="https://www.fly2pie.com/">St. Pete-Clearwater Airport</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-38307"><a href="https://www.flsa6.gov/">State Attorney&#8217;s Office</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26254"><a href="https://pinellas.gov/department/stormwater-vegetation/">Stormwater &amp; Vegetation Division</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-entities menu-item-130870"><a href="https://pinellas.gov/constitutional-offices/pinellas-county-supervisor-of-elections/">Supervisor of Elections</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26259"><a href="https://pinellas.gov/department/resiliency/">Resiliency Program</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-39176"><a href="https://pinellastaxcollector.gov">Tax Collector</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26256"><a href="https://pinellas.gov/department/transportation/">Transportation Division</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26260"><a href="https://pinellas.gov/department/utilities/">Utilities Department</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-26267"><a href="https://pinellas.gov/department/veterans-services/">Veterans Services Division</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-84029"><a href="https://partners.visitstpeteclearwater.com">Visit St. Pete/Clearwater</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-141576"><a href="https://pinellas.gov/young-rainey-star-center/">Young-Rainey STAR Center</a></li>
+<li class="nav-heading menu-item menu-item-type-custom menu-item-object-custom menu-item-85187"><a href="https://pinellas.legistar.com/">Granicus InSite / Legistar</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-121488"><a href="https://pinellas.gov/mypinellas">MyPinellas Intranet</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-120798"><a href="http://pinellas.okta.com/">Okta</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-85188"><a href="https://opus.pinellascounty.org/">EBS (OPUS)</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-85936"><a href="https://outlook.live.com/owa/?nlp=1">Webmail</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-85937"><a href="/talent-center/">Talent Center</a></li>
+</ul></div>					</div>
+					<div id="language" class="mt-5 d-flex align-items-start">
+						<img width="24" height="22" data-src="https://pinellas.gov/wp-content/themes/pinellas-county/img/icon-language.svg" class="icon-language mr-2 lazyload" alt="Language Switcher" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==" style="--smush-placeholder-width: 24px; --smush-placeholder-aspect-ratio: 24/22;">
+						<div id="google_translate_element"></div>
+					</div>	
+				</div>
+			</div>
+
+		</div>
+	</div>
+		
+	
+	<div class="wrapper bg-dark text-white" id="wrapper-footer-colophon">
+		<div class="container py-4 py-md-2">
+	
+			<div class="row">
+
+				<div id="nav_menu-2"  class="col-lg-8 widget footer-bottom-widget widget_nav_menu this"><div class="menu-footer-bottom-navigation-container"><ul id="menu-footer-bottom-navigation" class="menu"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-2386"><a href="https://pinellas.gov/privacy-and-security-notice/">Privacy Policy</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-2385"><a href="https://pinellas.gov/pinellas-county-liability-disclaimer-and-user-agreement/">Disclaimer</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-67063"><a href="https://pinellas.gov/pinellas-county-accessibility-statement/">Accessibility Policy</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-departments menu-item-67062"><a href="https://pinellas.gov/department/office-of-human-rights/">Human Rights</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-85974"><a href="https://pinellas.gov/title-vi-policy-and-grievance-procedure/">Title VI Policy</a></li>
+</ul></div></div><!-- .footer-widget --><div id="text-6"  data-animation-event="enters"  class="extendedwopts-col col-md-12 col-sm-12 col-xs-12 col-lg-4 text-center text-lg-right mt-4 mt-md-0 widget footer-bottom-widget widget_text this">			<div class="textwidget"><p>Copyright © 2026, Pinellas County. All rights reserved.</p>
+</div>
+		</div><!-- .footer-widget -->
+			</div><!-- row end -->
+	
+		</div><!-- container end -->
+	
+	</div><!-- wrapper end -->
+	
+	
+</footer>
+
+<script>
+
+function googleTranslateElementInit() {
+
+  new google.translate.TranslateElement({
+
+    pageLanguage: 'en'
+
+  }, 'google_translate_element');
+
+}
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+</div>
+
+	<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/pinellas-county/*","/wp-content/themes/picostrap/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+</script>
+<input type="hidden" id="owf_inbox_ajax_nonce" name="owf_inbox_ajax_nonce" value="cffb2e85e6" /><input type="hidden" name="_wp_http_referer" value="/programs/home-repair-loan-program/" /><input type="hidden" id="owf_claim_process_ajax_nonce" name="owf_claim_process_ajax_nonce" value="419f39a9d6" /><input type="hidden" name="_wp_http_referer" value="/programs/home-repair-loan-program/" /><script>window.wpsc_print_css_uri = 'https://pinellas.gov/wp-content/plugins/structured-content/dist/print.css';</script>
+			<script type="text/javascript">
+              var _paq = _paq || [];
+			  _paq.push(['setCustomDimension', 1, '{"ID":14,"name":"bgajan","avatar":"d658e3623644755a88df8fd74c3565d9"}']);
+              _paq.push(['trackPageView']);
+              (function () {
+                var u = "https://analytics3.wpmudev.com/";
+                _paq.push(['setTrackerUrl', u + 'track/']);
+                _paq.push(['setSiteId', '36987']);
+                var d   = document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
+                g.type  = 'text/javascript';
+                g.async = true;
+                g.defer = true;
+                g.src   = 'https://analytics.wpmucdn.com/matomo.js';
+                s.parentNode.insertBefore(g, s);
+              })();
+			</script>
+					<script>
+		( function ( body ) {
+			'use strict';
+			body.className = body.className.replace( /\btribe-no-js\b/, 'tribe-js' );
+		} )( document.body );
+		</script>
+		<script>window.PCAI_CHAT_ACTIVE = false;</script><script>
+document.addEventListener("scroll", function () {
+  const btn = document.getElementById("scrollTopBtn");
+  
+  if (window.scrollY > 300) {
+    btn.classList.add("visible");
+  } else {
+    btn.classList.remove("visible");
+  }
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const btn = document.getElementById("scrollTopBtn");
+
+  if (btn) {
+    btn.addEventListener("click", () => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
+    });
+  }
+});
+</script>
+
+<script>
+//force the GF date picker to start on Monday
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof gform !== "undefined") {     gform.addFilter('gform_datepicker_options_pre_init', function(optionsObj, formId, fieldId) {
+            if (formId == 88 && fieldId == 3) {
+                optionsObj.firstDay = 0; // Sunday
+            }
+            return optionsObj;
+        });
+    }
+});
+</script>
+
+<script>
+function updateChatHeader() {
+    const header = document.querySelector('#lhnHocHeader > .lhnWindow-header-text');
+
+    if (!header || header.dataset.processed) {
+        return;
+    }
+
+    header.dataset.processed = "true";
+
+        const now = new Date();
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+        weekday: 'short',
+        hour: 'numeric',
+        hour12: false,
+        timeZone: 'America/New_York'
+    }).formatToParts(now);
+
+    const day = parts.find(p => p.type === 'weekday').value;
+    const hourET = Number(parts.find(p => p.type === 'hour').value);
+
+    const isWeekend = day === 'Sat' || day === 'Sun';
+    const isAfterHours = hourET < 8 || hourET >= 17;
+
+    if (isWeekend || isAfterHours) {
+        header.textContent = 'Closed';
+        header.classList.add('custom-greeting');
+    }
+
+    return true;
+}
+
+const observer = new MutationObserver(updateChatHeader);
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
+
+updateChatHeader();
+</script><script id="wp-importmap" type="importmap">
+{"imports":{"@wordpress/route":"https://pinellas.gov/wp-includes/js/dist/script-modules/route/index.js?ver=c5843b6c5e84b352f43b","@wordpress/latex-to-mathml":"https://pinellas.gov/wp-includes/js/dist/script-modules/latex-to-mathml/index.js?ver=e5fd3ae6d2c3b6e669da"}}
+</script>
+		<style type="text/css">
+			.relevanssi-live-search-results {
+				opacity: 0;
+				transition: opacity .25s ease-in-out;
+				-moz-transition: opacity .25s ease-in-out;
+				-webkit-transition: opacity .25s ease-in-out;
+				height: 0;
+				overflow: hidden;
+				z-index: 9999995; /* Exceed SearchWP Modal Search Form overlay. */
+				position: absolute;
+				display: none;
+			}
+
+			.relevanssi-live-search-results-showing {
+				display: block;
+				opacity: 1;
+				height: auto;
+				overflow: auto;
+			}
+
+			.relevanssi-live-search-no-results, .relevanssi-live-search-didyoumean {
+				padding: 0 1em;
+			}
+		</style>
+		<script>
+	var relevanssi_rt_regex = /(&|\?)_(rt|rt_nonce)=(\w+)/g
+	var newUrl = window.location.search.replace(relevanssi_rt_regex, '')
+	if (newUrl.substr(0, 1) == '&') {
+		newUrl = '?' + newUrl.substr(1)
+	}
+	history.replaceState(null, null, window.location.pathname + newUrl + window.location.hash)
+</script>
+<script> /* <![CDATA[ */var tribe_l10n_datatables = {"aria":{"sort_ascending":": activate to sort column ascending","sort_descending":": activate to sort column descending"},"length_menu":"Show _MENU_ entries","empty_table":"No data available in table","info":"Showing _START_ to _END_ of _TOTAL_ entries","info_empty":"Showing 0 to 0 of 0 entries","info_filtered":"(filtered from _MAX_ total entries)","zero_records":"No matching records found","search":"Search:","all_selected_text":"All items on this page were selected. ","select_all_link":"Select all pages","clear_selection":"Clear Selection.","pagination":{"all":"All","next":"Next","previous":"Previous"},"select":{"rows":{"0":"","_":": Selected %d rows","1":": Selected 1 row"}},"datepicker":{"dayNames":["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],"dayNamesShort":["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],"dayNamesMin":["S","M","T","W","T","F","S"],"monthNames":["January","February","March","April","May","June","July","August","September","October","November","December"],"monthNamesShort":["January","February","March","April","May","June","July","August","September","October","November","December"],"monthNamesMin":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],"nextText":"Next","prevText":"Prev","currentText":"Today","closeText":"Done","today":"Today","clear":"Clear"},"registration_prompt":"There is unsaved attendee information. Are you sure you want to continue?"};/* ]]> */ </script><style type="text/css">.widget#text-5 input, .widget#text-5 textarea{}.widget#text-5 input[type="submit"], .widget#text-5 button{}</style><style type="text/css">.widget#text-3 input, .widget#text-3 textarea{}.widget#text-3 input[type="submit"], .widget#text-3 button{}</style><style type="text/css">.widget#custom_html-2 input, .widget#custom_html-2 textarea{}.widget#custom_html-2 input[type="submit"], .widget#custom_html-2 button{}</style><style type="text/css">.widget#text-6 input, .widget#text-6 textarea{}.widget#text-6 input[type="submit"], .widget#text-6 button{}</style><link rel='stylesheet' id='gform_basic-css' href='https://pinellas.gov/wp-content/plugins/gravityforms/assets/css/dist/basic.min.css?ver=3.0.2' media='all' />
+<link rel='stylesheet' id='gform_theme_components-css' href='https://pinellas.gov/wp-content/plugins/gravityforms/assets/css/dist/theme-components.min.css?ver=3.0.2' media='all' />
+<link rel='stylesheet' id='gform_theme-css' href='https://pinellas.gov/wp-content/plugins/gravityforms/assets/css/dist/theme.min.css?ver=3.0.2' media='all' />
+<style id="core-block-supports-inline-css">
+/**
+ * Core styles: block-supports
+ */
+.wp-elements-594a78ae236341f34c4c97c420b037b0 a:where(:not(.wp-element-button)) {
+	color: var(--wp--preset--color--red);
+}
+
+/*# sourceURL=core-block-supports-inline-css */
+</style>
+<script id="structured-content-frontend-js" src="https://pinellas.gov/wp-content/plugins/structured-content/dist/app.build.js?ver=1.7.0"></script>
+<script id="tec-user-agent-js" src="https://pinellas.gov/wp-content/plugins/event-tickets/common/build/js/user-agent.js?ver=da75d0bdea6dde3898df"></script>
+<script id="pb-accordion-blocks-frontend-script-js" src="https://pinellas.gov/wp-content/plugins/accordion-blocks/js/accordion-blocks.js?ver=1787234547"></script>
+<script id="jquery-widgetopts-js-extra">
+var varWidgetOpts = {"shallNotFixed":".site-footer","margin_top":"0","disable_width":"768","disable_height":"200"};
+//# sourceURL=jquery-widgetopts-js-extra
+</script>
+<script id="jquery-widgetopts-js" src="https://pinellas.gov/wp-content/plugins/extended-widget-options/assets/js/jquery.widgetopts.js?ver=7.0.3"></script>
+<script id="custom-js" src="https://pinellas.gov/wp-content/themes/pinellas-county/js/custom.js"></script>
+<script id="chatstop-script-js" src="https://pinellas.gov/wp-content/themes/pinellas-county/js/chatstop.js?ver=1.0"></script>
+<script id="relevanssi-live-search-client-js-extra">
+var relevanssi_live_search_params = [];
+relevanssi_live_search_params = {"ajaxurl":"https:\/\/pinellas.gov\/wp-admin\/admin-ajax.php","config":{"default":{"input":{"delay":300,"min_chars":3},"results":{"position":"bottom","width":"auto","offset":{"x":0,"y":5}}}},"msg_no_config_found":"No valid Relevanssi Live Search configuration found!","msg_loading_results":"Loading search results.","messages_template":"<div class=\"live-ajax-messages\">\n\t<div id=\"relevanssi-live-ajax-search-spinner\"><\/div>\n<\/div>\n"};;
+//# sourceURL=relevanssi-live-search-client-js-extra
+</script>
+<script id="relevanssi-live-search-client-js" src="https://pinellas.gov/wp-content/plugins/relevanssi-live-ajax-search/assets/javascript/dist/script.js?ver=2.5"></script>
+<script id="smush-lazy-load-js-before">
+var smushLazyLoadOptions = {"autoResizingEnabled":true,"autoResizeOptions":{"precision":5,"skipAutoWidth":true,"cdnBaseURL":""}};
+//# sourceURL=smush-lazy-load-js-before
+</script>
+<script id="smush-lazy-load-js" src="https://pinellas.gov/wp-content/plugins/wp-smush-pro/app/assets/js/smush-lazy-load.min.js?ver=4.3.0"></script>
+<script id="__ytprefsfitvids__-js" src="https://pinellas.gov/wp-content/plugins/youtube-embed-plus/scripts/fitvids.js?ver=14.2.6"></script>
+<script id="wp-dom-ready-js" src="https://pinellas.gov/wp-includes/js/dist/dom-ready.js?ver=a06281ae5cf5500e9317"></script>
+<script id="wp-a11y-js" src="https://pinellas.gov/wp-includes/js/dist/a11y.js?ver=af934e5259bc51b8718e"></script>
+<script id="gform_json-js" defer='defer' src="https://pinellas.gov/wp-content/plugins/gravityforms/js/jquery.json.js?ver=3.0.2"></script>
+<script id="gform_gravityforms-js-extra">
+var gform_i18n = {"datepicker":{"helpTextShort":"Press F1 for help","helpText":"Press the arrow keys to navigate by day, PageUp and PageDown to navigate by month, Alt+PageUp and Alt+PageDown to navigate by year, or Escape to cancel.","openOnFocusHelpText":"Press Down arrow to browse the calendar, or Escape to close.","tooltipTxt":"Press Escape to cancel","disabledTxt":"Disabled","markedTxt":"Selected","prevTxt":"Previous","nextTxt":"Next","monthTxt":"Month","yearTxt":"Year","months":["January","February","March","April","May","June","July","August","September","October","November","December"],"days":[{"s":"S","l":"Sunday"},{"s":"M","l":"Monday"},{"s":"T","l":"Tuesday"},{"s":"W","l":"Wednesday"},{"s":"T","l":"Thursday"},{"s":"F","l":"Friday"},{"s":"S","l":"Saturday"}]}};
+var gf_legacy_multi = [];
+var gform_gravityforms = {"strings":{"invalid_file_extension":"This type of file is not allowed. Must be one of the following:","file_uploaded":"File uploaded","delete_file":"Delete this file","in_progress":"in progress","file_exceeds_limit":"File exceeds size limit","illegal_extension":"This type of file is not allowed.","max_reached":"Maximum number of files reached","unknown_error":"There was a problem while saving the file on the server","currently_uploading":"Please wait for the uploading to complete","cancel":"Cancel","cancel_upload":"Cancel this upload","cancelled":"Cancelled","error":"Error","message":"Message"},"vars":{"images_url":"https://pinellas.gov/wp-content/plugins/gravityforms/images"}};
+var gf_global = {"gf_currency_config":{"name":"U.S. Dollar","symbol_left":"$","symbol_right":"","symbol_padding":"","thousand_separator":",","decimal_separator":".","decimals":2,"code":"USD"},"base_url":"https://pinellas.gov/wp-content/plugins/gravityforms","number_formats":[],"version_hash":"4d5907858dfdcd34b0627e7def4fdd43","strings":{"newRowAdded":"New row added.","rowRemoved":"Row removed","formSaved":"The form has been saved.  The content contains the link to return and complete the form."}};
+//# sourceURL=gform_gravityforms-js-extra
+</script>
+<script id="gform_gravityforms-js" defer='defer' src="https://pinellas.gov/wp-content/plugins/gravityforms/js/gravityforms.js?ver=3.0.2"></script>
+<script id="gform_placeholder-js" defer='defer' src="https://pinellas.gov/wp-content/plugins/gravityforms/js/placeholders.jquery.min.js?ver=3.0.2"></script>
+<script id="gform_gravityforms_utils-js" defer='defer' src="https://pinellas.gov/wp-content/plugins/gravityforms/assets/js/dist/utils.min.js?ver=3f278756f0a3032bed328ff6a9f6c01d"></script>
+<script id="gform_gravityforms_theme_vendors-js" defer='defer' src="https://pinellas.gov/wp-content/plugins/gravityforms/assets/js/dist/vendor-theme.min.js?ver=b1d32e3bcae548735f8a8c723e228edd"></script>
+<script id="gform_gravityforms_theme-js-extra">
+var gform_theme_config = {"common":{"form":{"honeypot":{"version_hash":"4d5907858dfdcd34b0627e7def4fdd43"},"ajax":{"ajaxurl":"https://pinellas.gov/wp-admin/admin-ajax.php","ajax_submission_nonce":"09e2f49f87","i18n":{"step_announcement":"Step %1$s of %2$s, %3$s","unknown_error":"There was an unknown error processing your request. Please try again.","error_403":"The request was blocked (403 error) for unknown security reasons. Remove any code-like text (scripts or DB queries) and try again."}}}},"hmr_dev":"","public_path":"https://pinellas.gov/wp-content/plugins/gravityforms/assets/js/dist/","config_nonce":"747d17e3c5"};
+//# sourceURL=gform_gravityforms_theme-js-extra
+</script>
+<script id="gform_gravityforms_theme-js" defer='defer' src="https://pinellas.gov/wp-content/plugins/gravityforms/assets/js/dist/scripts-theme.min.js?ver=a47d2ddc45fa71f5303d9c5936ccd281"></script>
+<script>
+gform.initializeOnLoaded( function() { jQuery(document).on('gform_post_render', function(event, formId, currentPage){if(formId == 1) {if(typeof Placeholders != 'undefined'){
+                        Placeholders.enable();
+                    }} } );jQuery(document).on('gform_post_conditional_logic', function(event, formId, fields, isInit){} ) } );
+</script>
+<script>
+gform.initializeOnLoaded( function() {jQuery(document).trigger("gform_pre_post_render", [{ formId: "1", currentPage: "1", abort: function() { this.preventDefault(); } }]);        if (event && event.defaultPrevented) {                return;        }        const gformWrapperDiv = document.getElementById( "gform_wrapper_1" );        if ( gformWrapperDiv ) {            const visibilitySpan = document.createElement( "span" );            visibilitySpan.id = "gform_visibility_test_1";            gformWrapperDiv.insertAdjacentElement( "afterend", visibilitySpan );        }        const visibilityTestDiv = document.getElementById( "gform_visibility_test_1" );        let postRenderFired = false;        function triggerPostRender() {            if ( postRenderFired ) {                return;            }            postRenderFired = true;            gform.core.triggerPostRenderEvents( 1, 1 );            if ( visibilityTestDiv ) {                visibilityTestDiv.parentNode.removeChild( visibilityTestDiv );            }        }        function debounce( func, wait, immediate ) {            var timeout;            return function() {                var context = this, args = arguments;                var later = function() {                    timeout = null;                    if ( !immediate ) func.apply( context, args );                };                var callNow = immediate && !timeout;                clearTimeout( timeout );                timeout = setTimeout( later, wait );                if ( callNow ) func.apply( context, args );            };        }        const debouncedTriggerPostRender = debounce( function() {            triggerPostRender();        }, 200 );        if ( visibilityTestDiv && visibilityTestDiv.offsetParent === null ) {            const observer = new MutationObserver( ( mutations ) => {                mutations.forEach( ( mutation ) => {                    if ( mutation.type === 'attributes' && visibilityTestDiv.offsetParent !== null ) {                        debouncedTriggerPostRender();                        observer.disconnect();                    }                });            });            observer.observe( document.body, {                attributes: true,                childList: false,                subtree: true,                attributeFilter: [ 'style', 'class' ],            });        } else {            triggerPostRender();        }    } );
+</script>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap.native@3.0.0/dist/bootstrap-native.min.js"></script>
+	<script async src="https://siteimproveanalytics.com/js/siteanalyze_15202942.js"></script>
+	</body>
+</html>

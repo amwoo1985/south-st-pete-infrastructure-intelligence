@@ -1,0 +1,5 @@
+# Test-only dependencies (DECISIONS #23) — never installed into the
+# runtime container image (Dockerfile installs requirements.txt only).
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+pytest==9.1.1
+responses==0.26.2

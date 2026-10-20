@@ -9,6 +9,7 @@ venv/
 # Secrets / env — never committed, per DECISIONS #8
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 
@@ -19,3 +20,7 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Claude Code personal overrides (permissions, etc.) — never shared via git
+.claude/settings.local.json
+infra/migration_data/

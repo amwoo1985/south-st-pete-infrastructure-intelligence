@@ -1,0 +1,89 @@
+# Local dev only — pgvector-enabled Postgres for Phase E (embeddings + pgvector).
+# Does NOT touch the Fargate/RDS deploy path (see infra/ for that). Per DECISIONS #8,
+# one image, config-driven environments — this stack is selected by connecting to
+# localhost in dev, never baked into any image.
+#
+# Credentials come from the repo-root .env (gitignored, never committed) via the
+# LOCAL_DB_* variables below. See .env.example for the required names/placeholders.
+# These are intentionally distinct from RDS_MASTER_USERNAME/RDS_MASTER_PASSWORD,
+# which belong to the separate AWS RDS environment — do not reuse those names here.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16  # Postgres 16.x + pgvector, pinned major version (no :latest)
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LOCAL_DB_USER:?LOCAL_DB_USER must be set in .env}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD must be set in .env}
+      POSTGRES_DB: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
+    ports:
+      # Host-exposed so a host-run Python process (rag-pipeline, tests) can connect
+      # directly — no app container exists yet. Bound to localhost only, not 0.0.0.0.
+      - "127.0.0.1:${LOCAL_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, only on first init of an empty data dir: ensures the vector
+      # extension exists without relying on app code to assume it's there.
+      - ./infra/local-db/init-pgvector.sql:/docker-entrypoint-initdb.d/01-init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-postgres} -d ${LOCAL_DB_NAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Phase J: one image (repo-root Dockerfile), config-driven role selection
+  # per DECISIONS #8 — `api` and `worker` below share the same build, differ
+  # only in `command:`. Neither service's environment block contains a
+  # secret literal: every value is `${VAR}` interpolation from the
+  # gitignored repo-root .env (Compose auto-loads it), per
+  # .claude/rules/deploy.md's "secrets never live in committed config".
+  api:
+    build: .
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Overrides connection.py's 127.0.0.1 default: inside this container,
+      # 127.0.0.1 is the container itself, not the `db` service — `db` is
+      # the Compose service name, resolvable via Compose's internal DNS.
+      LOCAL_DB_HOST: db
+      LOCAL_DB_USER: ${LOCAL_DB_USER:?LOCAL_DB_USER must be set in .env}
+      LOCAL_DB_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD must be set in .env}
+      LOCAL_DB_NAME: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
+      LOCAL_DB_PORT: 5432
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
+      # DECISIONS #144 — gates POST /documents/upload only (app/api/documents.py).
+      # Deliberately NOT `:?required` like the vars above: an unset value must
+      # not take down /health, /query, /sources/{doc_id}, which stay open. The
+      # app itself fails closed (503) on every upload request when this is
+      # unset — see app/api/documents.py's module docstring.
+      UPLOAD_API_KEY: ${UPLOAD_API_KEY:-}
+    ports:
+      # Localhost only, matching `db`'s own binding above. POST
+      # /documents/upload now requires the X-Upload-Api-Key header
+      # (DECISIONS #144) — the other three routes remain open by design.
+      - "127.0.0.1:8000:8000"
+
+  worker:
+    build: .
+    # Fixed module path per this round's crawler-specialist contract —
+    # app/granicus/run_worker.py may not exist at image-build time (parallel
+    # work); the path itself is not this service's decision to make.
+    command: python -m app.granicus.run_worker
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LOCAL_DB_HOST: db
+      LOCAL_DB_USER: ${LOCAL_DB_USER:?LOCAL_DB_USER must be set in .env}
+      LOCAL_DB_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD must be set in .env}
+      LOCAL_DB_NAME: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
+      LOCAL_DB_PORT: 5432
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
+    # No port mapping — not an HTTP service.
+
+volumes:
+  pgdata:
+    # Named volume — persists across `docker-compose down`/`up`.
+    # Reset to a clean slate with: docker-compose down -v

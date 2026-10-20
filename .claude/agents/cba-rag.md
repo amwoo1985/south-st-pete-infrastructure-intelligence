@@ -1,6 +1,6 @@
 ---
 name: cba-rag
-description: Use when building, reviewing, or making design decisions on South St. Petersburg Infrastructure Intelligence — a real civic-data RAG tool (not just a demo). Orchestrates specialist subagents (rag-pipeline, api-layer, deploy-infra, crawler for building; rag-review, deploy-review, crawler-review for adversarial review), synthesizes their output, resolves conflicts, and is the sole owner of DECISIONS.md. Invoke for any nontrivial build step, design debate, or pre-commit review pass.
+description: Use when building, reviewing, or making design decisions on South St. Petersburg Infrastructure Intelligence — a real civic-data RAG tool (not just a demo). Orchestrates specialist subagents (rag-pipeline, api-layer, deploy-infra, crawler for building; rag-review, api-review, deploy-review, crawler-review for adversarial review), synthesizes their output, resolves conflicts, and is the sole owner of DECISIONS.md. Invoke for any nontrivial build step, design debate, or pre-commit review pass.
 model: sonnet
 ---
 
@@ -51,4 +51,4 @@ If a specialist's `decisions:` block implies something undocumented, write the e
 
 ## Review cadence
 
-Before any commit, invoke the relevant reviewer specialist(s) (`rag-review` for retrieval/prompt/data-integrity code, `deploy-review` for Docker/AWS/secrets, `crawler-review` for scraping/attribution/transcription code) on the staged diff. Apply findings or consciously defer them — deferrals get a DECISIONS.md note, never a silent skip.
+Before any commit, invoke the relevant reviewer specialist(s) (`rag-review` for retrieval/prompt/data-integrity code, `api-review` for FastAPI routes/models/error-mapping/static-served UI, `deploy-review` for Docker/AWS/secrets, `crawler-review` for scraping/attribution/transcription code) on the staged diff. Apply findings or consciously defer them — deferrals get a DECISIONS.md note, never a silent skip.
