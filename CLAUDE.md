@@ -41,7 +41,7 @@ The detailed design plan is kept locally, not committed.
 
 - No Kubernetes, no Terraform/IaC this cycle (DECISIONS #2).
 - One AWS deploy target (Fargate) (DECISIONS #1).
-- **No real partner documents on any deployed instance until Phase C's per-org retrieval scoping and its cross-org leak tests have shipped.** Phase B's logins alone aren't enough: without C, any signed-in user's `/query` searches every org's documents. Today the only gate is a single shared upload key (DECISIONS #144), and `/query` and `/sources` are open. That's fine for test data and wrong for EINs, financials, or banking details.
+- **No real partner documents on any deployed instance until Phase C's per-org retrieval scoping and its cross-org leak tests have shipped.** Phase B's logins alone aren't enough: without C, any signed-in user's `/query` searches every org's documents. The deployed instance also needs HTTPS on a stable hostname first (DECISIONS #162): today it's plain http on a changing IP, and Cognito won't redirect to it. Today the only gate is a single shared upload key (DECISIONS #144), and `/query` and `/sources` are open. That's fine for test data and wrong for EINs, financials, or banking details.
 - **The app never submits applications or sends email in the first version** — it prepares packages for a designated human submitter (questionnaire 7.1, 3.3).
 - **The app never stores funder-portal passwords, recovery codes, or MFA secrets**, and credentials are never available to the AI drafting process (questionnaire 9.3, 9.4).
 - **Generated text never invents** achievements, metrics, partner commitments, or future funding. Every factual claim traces to a cited, authorized source; anything without a source gets flagged instead of written (questionnaire 5.4).
