@@ -3,19 +3,17 @@
 .venv/
 .git/
 .pytest_cache/
-__pycache__/
-*.py[cod]
-.env
-.env.*
-!.env.example
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.env
+.envrc
+**/*.pem
+**/*.key
+.aws/
+infra/migration_data/
+design/
 tests/
-# scripts/ used to be excluded here (api/worker never needed it), but the
-# new south-st-pete-granicus-worker task family (DECISIONS #139) runs
-# scripts/run_granicus_worker_once.py from THIS image (Dockerfile now
-# COPYs scripts/) — excluding it here would silently empty the build
-# context Dockerfile's COPY reads from and break every build. Contains no
-# secrets (same discipline already relied on for everything else this
-# image does copy).
 DECISIONS.md
-PLAN.md
 CLAUDE.md
