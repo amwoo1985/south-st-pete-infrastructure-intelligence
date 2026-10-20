@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.auth.principal import Principal, get_principal
 from app.db.connection import get_connection
+from tests.conftest import as_system_job
 
 
 @pytest.fixture
@@ -32,7 +33,7 @@ def user_row():
     created = []
 
     def _make(sub: str, *, disabled: bool = False, admin: bool = False):
-        conn = get_connection()
+        conn = as_system_job(get_connection())
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -46,7 +47,7 @@ def user_row():
         created.append(sub)
 
     yield _make
-    conn = get_connection()
+    conn = as_system_job(get_connection())
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM users WHERE cognito_sub = ANY(%s)", (created,))
@@ -100,7 +101,7 @@ def test_disabling_takes_effect_on_next_request(cognito_env, make_token, probe_a
     user_row(sub)
     token = make_token(sub=sub)
     assert probe_app.get("/whoami", headers={"Authorization": f"Bearer {token}"}).status_code == 200
-    conn = get_connection()
+    conn = as_system_job(get_connection())
     try:
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET disabled_at = now() WHERE cognito_sub = %s", (sub,))

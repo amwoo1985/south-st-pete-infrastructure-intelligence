@@ -1985,3 +1985,38 @@ Not changed: Fargate, no K8s/IaC, OpenAI, the B0–B2 work, AWS resource names (
 
 Why: Amber's direction. The decisions above are cheap now and expensive to retrofit once tables and customer data exist.
 Date: 2026-10-20
+
+## #166 — Tenancy foundation: organizations, memberships, consented support access, database-written audit (Phase B, layer B3)
+
+Decision: migration `0005_tenancy_and_audit` implements #165's data-model rules, as designed and then adversarially reviewed (design review of the local plan §12, 2026-10-20: 3 HIGH, 6 MED, all folded in before code).
+- **Tables:** `organizations` (the tenant; `billing_account_id` kept separate from tenancy and unused for now; status active ⇄ suspended → closed, closed being terminal), `org_memberships` (roles org_admin / point_person / contributor / budget_owner / authorized_approver; a consultant is a user with memberships in several orgs), `support_access_grants` (vendor access consented by the customer's org admin, at most 14 days, no backdating), `audit_log`.
+- **The database knows who's acting.** `app/auth/context.py` (`get_auth_context`) verifies the token before any DB work, uses one connection per request, loads the active user, sets `app.user_id` with a bind parameter, and **commits immediately** so a route's rollback can't erase it. Triggers stamp `granted_by`/`consented_by`/`created_by`/`actor_user_id` from it and ignore client-supplied values.
+- **Grant rules live in the database** (SECURITY DEFINER triggers, pinned search_path, a per-org `FOR UPDATE` lock against races):
+  - Only a platform admin creates orgs or changes their status.
+  - A platform admin may appoint an org admin only when the org has no active admin (first setup, or recovery when the only admin is disabled), never another platform admin, and can't revoke anyone. So two platform admins together are not a master key (design review H1).
+  - Org admins grant any role; point people grant non-admin roles. Nobody grants themselves or a disabled person, and nobody grants in a non-active org.
+  - Revocation only: org admins revoke, anyone may leave, there's no un-revoking, and the last active admin can't leave.
+  - Support access is consented by the customer's org admin, goes only to an active platform admin, and is never self-granted. It counts only while the org is active and the support user is still an enabled platform admin.
+- **Audit can't be skipped or forged by the API** (design review H2): `app_runtime` has no direct rights on `audit_log`. Rows come only from the triggers and `audit_write()`, which stamp the actor themselves and strip any client-supplied `system_job`. Organizations, memberships, support grants **and `users`** (platform-admin promotion, disabling) are all audited.
+- **Privileged path:** login roles in the `app_privileged` allowlist (the migration/admin role) may do recovery or bootstrap only with a named `app.system_job` reason, which is recorded in the audit row. Unattributed changes are refused.
+- **Phase C contract, defined now:** an active membership requires a non-revoked row, an enabled user and an active org; active support access is defined the same way. Both are exposed as `app_is_member()` / `app_active_support_grant()` SECURITY DEFINER helpers that RLS policies will reuse (avoiding policy self-recursion).
+- **Stated limit:** these rules stop application LOGIC bugs. Anyone able to run arbitrary SQL as `app_runtime` (e.g. via SQL injection) could set `app.user_id` to anyone. SQL stays parameterized everywhere.
+- **Connection pooling is not allowed** without first switching to per-transaction `set_config(..., true)` (noted in `app/api/dependencies.py`).
+- Layer split: `assignments` (per-application, time-limited) moved to D2, because it references `applications`.
+- **Vendor staff never become members of a customer org** (Amber, 2026-10-20). Platform admins (the vendor: Amber and future staff) reach customer data only through consented, at-most-14-day, audited support grants, whoever tries to add them as members. Consequence: **Erica is FLFPC's org admin, not a platform admin**, which revises the "both at bootstrap" plan. Anyone with both roles uses two logins.
+- Hardening from the pre-commit review (general-purpose; 1 HIGH, 4 MED, 7 LOW, all applied):
+  - The HIGH was exactly the vendor-membership path above.
+  - "Privileged" is an allowlist role (`app_privileged`, granted to the migration role by 0005), not "anything that isn't app_runtime". Org rules too now require a named `app.system_job` reason; a privileged session without one gets no bypass.
+  - The API can't write database-reserved audit actions (`org.*`, `membership.*`, `support_access.*`, `user.*`) or log into an org it doesn't belong to. Every audit row records its source (`database` / `api` / `system` / `operator`).
+  - Grant rules refuse to run outside READ COMMITTED, because a stale snapshot under REPEATABLE READ let two simultaneous revocations remove an org's last admin.
+  - New orgs always start `active` with no billing.
+  - The first-admin and last-admin checks now agree that disabled admins don't count, so a platform admin can appoint a recovery admin when an org's only admin is disabled.
+  - `audit_log` gives the API no rights at all, and the privileged role can't update, delete or truncate it by accident (a named reason is required). It is **not** tamper-proof against the database owner, who can disable triggers. True immutability needs export to an external store, a later item.
+  - A DB error while setting the acting user returns 503.
+  - Every test denial asserts its specific reason.
+- Second review round (0 HIGH; 1 MED, 4 LOW, all applied): membership checks (`app_is_member`) ignore platform admins entirely, so a member later promoted to platform admin loses member powers and Phase C RLS inherits the rule; API audit actions must match a strict lowercase `area.event` format; docs no longer overclaim immutability; a test proves the `app_privileged` allowlist contains the migration role and not `app_runtime`.
+- Privileged CLI contract: changes that record a person (granted_by, revoked_by, created_by) need `app.user_id` set to the real operator plus an `app.system_job` reason. Audit-only changes (users, org status/billing) accept a reason alone.
+- Amber's decision (2026-10-20): **customer org admins may invite their own staff** (self-service). That's built in B4 as a guarded SECURITY DEFINER function plus the API calling Cognito with a narrowly scoped task role.
+
+Verified: 225 tests pass. 38 new ones in `tests/db/test_tenancy.py` run through a real `app_runtime` login acting as specific people and cover every rule above, including forged `granted_by`/`created_by`, the platform-admin master-key attempt, last-admin protection, support-grant consent/backdating/closed-org cases, direct audit reads and writes denied, audit rows with the real actor, users changes needing a reason, and identity surviving a rollback.
+Date: 2026-10-20

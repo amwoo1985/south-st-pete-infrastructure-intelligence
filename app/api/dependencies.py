@@ -1,20 +1,14 @@
 """Shared FastAPI dependencies for every route in app/api/.
 
-DB connection strategy (api-layer design decision, this round, stated
-explicitly per the orchestrator's directive rather than picked silently):
-plain per-request open/close via get_db_conn() below, NOT a connection
-pool. Reasoning: this is a solo-operator civic tool, not a multi-tenant
-SaaS — real expected concurrent request volume is one person (Amber),
-occasionally a handful of coalition members, hitting a handful of
-endpoints. psycopg's connect() overhead on localhost/RDS at this volume
-is negligible next to the OpenAI network round-trip /query already pays
-on every call. A pool (e.g. psycopg_pool) adds a second stateful thing to
-size, tune, and reason about failure modes for (pool exhaustion, stale
-pooled connections surviving a DB restart) for a benefit that doesn't
-show up until concurrent request volume is far higher than this tool
-will ever realistically see. If real concurrent load ever materializes,
-revisit — but pre-optimizing for it now would be solving a problem this
-project doesn't have.
+DB connection strategy: one plain connection per request, opened and closed
+around the request, with no pool. Load is modest, and connect() is cheap
+next to the OpenAI round-trips. It's also what makes the tenant-identity
+model safe: protected routes use app.auth.context.get_auth_context, which
+sets the caller's identity (app.user_id) at session level on that request's
+own connection (DECISIONS #166). **Adding a connection pooler (psycopg_pool,
+PgBouncer, RDS Proxy) requires switching that to per-transaction
+set_config(..., true) first**, or one tenant's identity could leak into
+another's request.
 """
 
 from __future__ import annotations
