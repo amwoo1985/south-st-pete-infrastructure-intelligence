@@ -1840,3 +1840,4 @@ Live AWS state, read-only check on 2026-10-19 (for item 4):
 
 #159 teardown log:
 - Step 1, 2026-10-19: Amber ran `aws scheduler delete-schedule --name south-st-pete-weekly-recrawl`. Verified afterward (read-only): `list-schedules` returns `[]`, and `get-schedule` returns ResourceNotFoundException. The weekly civic recrawl is stopped. Undo: re-register from `infra/register_recrawl_schedule.sh` at 217596f.
+- Step 2, 2026-10-19: Amber ran `aws ecs delete-service --cluster south-st-pete-dev --service south-st-pete-worker`. Verified afterward (read-only): the service is INACTIVE with 0 running, and `south-st-pete-api` is the only service left in the cluster.
