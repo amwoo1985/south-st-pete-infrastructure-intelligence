@@ -1958,3 +1958,30 @@ Not done in B2, on purpose: no existing route requires sign-in yet; that's B4, w
 
 Verified: 185 tests pass. New ones cover real RS256-signed tokens against a local key standing in for Cognito's JWKS, every rejection case (expired, wrong issuer, ID token, other client, other key, unknown or missing kid, each missing claim, alg none, HS256 confusion, tampered payload, garbage, missing or placeholder config), and the dependency over real HTTP against the real `users` table (active, no header, wrong scheme, invalid token, no account, disabled, disabled mid-session, unconfigured).
 Date: 2026-10-20
+
+## #165 — Re-scope: a multi-tenant fundraising platform (subscription service); the FLFPC coalition is the first customer
+
+Decision: on 2026-10-20 Amber decided ("This is happening") that the app becomes a subscription service for nonprofits. Each organization gets its own logins, data and history. A specialized agent finds grants matched to each org's profile, reports monthly, fills applications from the org's own data, packages documents, and prompts for uploads and deadlines. It also helps with funder relationships: funder profiles, next-step advice, drafted outreach, and stewardship reminders. The FLFPC coalition (#158 questionnaire) remains the first customer and its requirements still bind. Every org, FLFPC included, is a tenant like any other, with no special-casing in code.
+
+Product rules carried forward and extended:
+- **The app prepares; the org acts.** It never submits applications and never sends email to funders on an org's behalf. It drafts, packages, reminds and gives copy-ready answers. Portal filling may use the org's own browser tooling, but a person always clicks submit (questionnaire 7.1).
+- **Facts trace to sources.** Advice about a funder cites public sources (e.g. 990-PF filings). Drafts cite the org's own documents. Unsupported claims are flagged, never filled in (#159).
+- **"Learning" is per-org memory, never model training.** What the agent learns about a client (outcomes, funder feedback, what worked) is stored in that client's own isolated records and retrieved later. No model is trained or fine-tuned on client data (questionnaire 8.5). **Anything shared across clients comes from public data only.**
+
+Data-model consequences, set in B3 before anything is built on them:
+1. The **organization is the data tenant**. Every private row carries `org_id`, enforced by the database (Phase C row-level security).
+2. **Billing is separate from tenancy.** A billing account (later) may pay for several orgs (a consultant's clients, a coalition's members). Orgs are not the billing unit.
+3. **Public reference data vs private org data are separate tables.** Funder profiles from public filings are shared; an org's relationship with a funder (contacts, interactions, notes, outcomes) is private to that org.
+4. **Every form of cross-org access is modeled explicitly:** membership (org staff), multi-org membership (consultants), explicit shares (coalitions), and **vendor support access** (time-limited, consented by the org, audited). There is no master key, and `is_platform_admin` still grants no content access.
+
+Infrastructure gaps found by a read-only audit on 2026-10-20, all of which must be fixed **before any real customer data**:
+- **RDS storage is not encrypted at rest** (`StorageEncrypted=false`). AWS can't enable it in place: snapshot, copy encrypted, restore, cut over. It's cheapest now, while the live tables are empty, and it doubles as the first real restore drill.
+- **RDS deletion protection is off.** Turn it on.
+- HTTPS on a stable domain (#162) becomes mandatory, not deferred.
+- #140 (a credential in IAM tag metadata) must be closed.
+- What's fine today: 7-day point-in-time backups (latest restorable point is current).
+
+Not changed: Fargate, no K8s/IaC, OpenAI, the B0–B2 work, AWS resource names (renaming live resources is risk without benefit).
+
+Why: Amber's direction. The decisions above are cheap now and expensive to retrofit once tables and customer data exist.
+Date: 2026-10-20
