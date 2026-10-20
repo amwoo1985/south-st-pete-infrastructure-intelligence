@@ -1,29 +1,13 @@
 #!/bin/bash
 # Creates (idempotently) an SNS topic + email subscription and an AWS
 # Budgets monthly cost budget with 50/90/100% notification thresholds
-# wired to that topic — CLAUDE.md's own "set a budget alert before the
-# unattended full [Granicus] backfill runs" requirement, and the general
-# cost-visibility need for a solo-dev account with real recurring
-# Fargate/RDS spend plus per-minute whisper-1 transcription cost.
+# wired to that topic — cost visibility for real recurring Fargate/RDS
+# spend plus per-call OpenAI usage.
 #
-# NOT RUN THIS SESSION. Confirmed live this round:
-#   - `sns:CreateTopic` DENIED for south-st-pete-infra-dev (this IAM user
-#     can currently only sns:ListTopics, granted incidentally by
-#     AmazonECS_FullAccess's own policy document).
-#   - `budgets:ViewBudget` DENIED, and there is no single AWS-managed
-#     "budgets full access" policy to attach (AWS only ships
-#     AWSBudgetsReadOnlyAccess and narrower automated-action policies
-#     that don't cover budgets:CreateBudget/ModifyBudget).
-# Closing both gaps (needs Amber's sign-off, same as every other IAM
-# change in this project per DECISIONS #119's precedent):
-#   aws iam attach-user-policy --user-name south-st-pete-infra-dev \
-#     --policy-arn arn:aws:iam::aws:policy/AmazonSNSFullAccess
-#   aws iam create-policy --policy-name south-st-pete-budgets-management \
-#     --policy-document file://infra/budgets-iam-policy.json
-#   aws iam attach-user-policy --user-name south-st-pete-infra-dev \
-#     --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/south-st-pete-budgets-management
+# Ran for real; the budget and alert are live per DECISIONS #133. Re-running
+# is idempotent. infra/budgets-iam-policy.json is the IAM policy it needed.
 #
-# Usage (once both are attached):
+# Usage:
 #   AWS_PROFILE=south-st-pete infra/register_cost_alerts.sh
 #
 # Requires: AWS_PROFILE set, .env present with BUDGET_ALERT_EMAIL and

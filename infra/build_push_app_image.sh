@@ -1,20 +1,8 @@
 #!/bin/bash
-# Builds and pushes ../Dockerfile — the real, deployed application image
-# (DECISIONS #8's one-image, config-driven-role convention: same image
-# serves both the `api` and `worker` roles, role selected by each task
-# definition's own `command:`/containerOverride, never by a separate build).
-#
-# Did not exist before DECISIONS #137: every prior build/push of this image
-# (DECISIONS #120, #122) was a manual, undocumented `docker build`/`docker
-# push` pair typed into a session rather than a reusable script — unlike
-# infra/build_push_migrate_image.sh, which has had this exact shape since
-# DECISIONS #124. That gap meant every real deploy of this image was, in
-# practice, unrepeatable without re-deriving the right ECR repo name/tag
-# scheme from old DECISIONS.md prose. This closes it, mirroring
-# build_push_migrate_image.sh's structure (repo per DECISIONS #120: a
-# separate ECR repo, `south-st-pete-app`, from the migrate tooling's
-# `south-st-pete-app-migrate` — kept separate so the two never get confused
-# about what's actually running in ECS).
+# Builds and pushes ../Dockerfile — the deployed application image
+# (DECISIONS #8's one-image, config-driven-role convention: the role is
+# selected by the task definition's own `command:`, never by a separate
+# build). ECR repo: `south-st-pete-app` (DECISIONS #120).
 #
 # Usage:
 #   AWS_PROFILE=south-st-pete infra/build_push_app_image.sh

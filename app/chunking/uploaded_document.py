@@ -52,7 +52,7 @@ existing ON CONFLICT logic, rather than duplicating rows.
 
 A completely empty/whitespace-only parsed document raises
 EmptyDocumentError rather than silently producing zero chunks
-(.claude/rules/crawler.md's fail-loud rule, applied here to uploaded
+(.claude/rules/data.md's fail-loud rule, applied here to uploaded
 content exactly as it applies to crawled content) — the upload endpoint
 surfaces this as the upload's failure_reason.
 
@@ -78,7 +78,7 @@ from docx import Document as DocxDocument
 from pypdf import PdfReader
 
 from app.chunking.base import Chunk, make_chunk_id
-from app.crawlers.base import Attribution
+from app.provenance import Attribution
 from app.embeddings.client import MAX_INPUT_CHARS as _EMBEDDING_MAX_INPUT_CHARS
 
 logger = logging.getLogger("chunking.uploaded_document")
@@ -124,7 +124,7 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 class EmptyDocumentError(ValueError):
     """Raised when an uploaded document parses to zero non-empty
-    paragraphs — .claude/rules/crawler.md's fail-loud rule applied to
+    paragraphs — .claude/rules/data.md's fail-loud rule applied to
     uploaded content: never silently produce zero chunks."""
 
 

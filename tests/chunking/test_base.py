@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 
 from app.chunking.base import Chunk, make_chunk_id
-from app.crawlers.base import Attribution
+from app.provenance import Attribution
 
 
 def make_attribution() -> Attribution:
