@@ -1886,3 +1886,27 @@ Date: 2026-10-19
 - `south-st-pete-api` updated to `:6`. The service reached a steady state, the old task was stopped, and the new task logged "Application startup complete" (the schema check passed as `app_runtime`). Live `GET /health` returned `{"status":"ok","db":"ok"}`, and `/health/crawlers` returns 404 (Phase A code is live).
 - After `report`: public `chunks`/`document_uploads` are at 0; `archive.civic_chunks` 593, `archive.document_uploads` 0, `archive.crawl_runs` 13, `archive.granicus_transcription_jobs` 4. These match the baseline exactly, so nothing was lost.
 - The deployed API no longer logs in as the RDS master user. Master credentials now live only in the `south-st-pete-migrate` task definition.
+
+## #162 — Cognito settings verified against AWS docs (Phase B, layer B1); production login blocked on HTTPS
+
+Decision: B1 creates the user pool with `infra/register_cognito.sh`. Each setting was checked against AWS documentation on 2026-10-19, which closes the design plan's `[UNVERIFIED]` tags for Cognito:
+- **Tier: Essentials.** Managed login (the hosted sign-in pages) requires Essentials or Plus; Lite doesn't include it. Essentials is free under 10,000 monthly active users, so the cost at our scale is $0. [aws.amazon.com/cognito/pricing]
+- **PKCE authorization-code grant for a public (no-secret) browser client: supported.** [docs.aws.amazon.com/cognito/latest/developerguide/using-pkce-in-authorization-code.html]
+- **Admin-only account creation: supported.** Invited users start in FORCE_CHANGE_PASSWORD and must set a permanent password at first sign-in. [.../how-to-create-user-accounts.html]
+- **MFA required, TOTP only: supported.** Managed login prompts for TOTP setup when MFA is required. Account recovery is by verified email, which doesn't conflict with a TOTP factor (the docs forbid recovery and MFA sharing the same email/SMS channel). [.../user-pool-settings-mfa.html]
+- **Still ambiguous, and it could go either way.** For our exact case (an admin-invited user with only an email attribute, email as the recovery channel, no TOTP registered yet, TOTP the only MFA factor), the same docs page supports two readings:
+  - (a) Cognito returns an MFA_SETUP challenge, and "managed login handles ... the setup of TOTP" before any tokens are issued. This is the intended behavior.
+  - (b) Decision-tree step 7 says a user whose only attribute is the recovery channel "can't complete sign-in with MFA required and Amazon Cognito returns an error."
+  - Separately, a note says Cognito "issues OAuth 2.0 tokens, even if your user pool requires MFA" on a first sign-in. That note is about self sign-up confirmation, which is disabled here.
+  - The B1 acceptance test must distinguish these: a freshly invited user must see TOTP enrollment, with no redirect carrying a code before it. If (b) happens, the fallback is to set account recovery to `admin_only` so email stops being the recovery channel, and re-test. **Caution, per the AWS UpdateUserPool reference:** "If you don't provide a value for an attribute, Amazon Cognito sets it to its default value." A recovery-only update would silently reset MFA, admin-only sign-up and the password policy. Start from `describe-user-pool`, send the full edited configuration back, then re-run `register_cognito.sh` and confirm MFA is ON. Recovery would then go through an admin, which the questionnaire allows with "a designated backup administrator." If tokens arrive before TOTP enrollment, B1 fails and no B5 work proceeds on this pool configuration.
+- **Client hardening (pre-commit review):** no direct password API flows (`ExplicitAuthFlows` is refresh only, so sign-in goes through managed login; the acceptance test confirms managed login works without them). The client reads only `email`/`email_verified` and writes only `email`. The sign-in session lasts 15 minutes, because the first sign-in chains a password change and TOTP enrollment and the 3-minute default is too short. `invite` makes the admin retype the address, since a typo would hand the temporary password and all recovery mail to a stranger.
+- **Permissions:** the deploy user has no Cognito access. `infra/cognito-iam-policy.json` lists exactly what the script needs, for an admin to attach once. Cognito's built-in email sender has a low daily cap shared by invites and resets; move to SES before onboarding many people at once.
+
+**Gap the design plan missed:** Cognito requires `https` callback URLs, with plain `http` allowed only for `http://localhost`. [.../user-pool-settings-client-apps.html] The deployed API is `http://<task public IP>:8000`: no TLS, and the address changes on every task restart. So:
+- B1–B4 are built and tested against `http://localhost:8000/` (the only callback registered).
+- **B5 (browser login) cannot work in production** until the app has HTTPS on a stable hostname, e.g. an ALB + ACM certificate + a domain, roughly $16–20/month (unverified estimate).
+- Independently of Cognito, the live app already sends everything, including the upload key, unencrypted. Together with #158's Phase C gate, there should be **no real partner data on the deployed instance until HTTPS exists.**
+- Amber chose "no domain for now" (2026-10-19). HTTPS gets its own DECISIONS entry when she picks a domain.
+
+Why: verifying vendor behavior before building on it was a design-review requirement (#158 plan, review item 1), and it surfaced a real blocker before any B5 code was written.
+Date: 2026-10-19

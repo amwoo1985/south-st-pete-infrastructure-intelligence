@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CoalitionGrantAppCognitoAccountLevel",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:ListUserPools",
+        "cognito-idp:CreateUserPool"
+      ],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": "us-east-1"}}
+    },
+    {
+      "Sid": "CoalitionGrantAppCognitoPoolLevel",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:DescribeUserPool",
+        "cognito-idp:SetUserPoolMfaConfig",
+        "cognito-idp:CreateUserPoolDomain",
+        "cognito-idp:ListUserPoolClients",
+        "cognito-idp:CreateUserPoolClient",
+        "cognito-idp:CreateManagedLoginBranding",
+        "cognito-idp:DescribeManagedLoginBrandingByClient",
+        "cognito-idp:AdminCreateUser"
+      ],
+      "Resource": "arn:aws:cognito-idp:us-east-1:*:userpool/*"
+    }
+  ]
+}
