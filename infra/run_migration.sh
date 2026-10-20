@@ -3,7 +3,7 @@
 # task (DECISIONS #160), then prints its log output and exit code.
 #
 #   status  list applied / pending migrations (changes nothing)
-#   report  read-only summary of data-table contents (pre-purge check)
+#   report  read-only summary of data-table contents (live and archived)
 #   up      apply pending migrations (as the RDS master user)
 #
 # Usage:

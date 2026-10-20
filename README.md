@@ -69,7 +69,7 @@ AWS Fargate (`api` service) + RDS. Deploy in this order:
 
 1. `infra/build_push_app_image.sh` (build and push the image)
 2. `IMAGE_TAG=<sha> infra/register_app_taskdefs.sh` (registers the `api` and `migrate` task definitions)
-3. `infra/run_migration.sh up` (applies schema changes as the database owner; `status` and `report` are read-only. `report` prints uploaded filenames into the CloudWatch log group `/ecs/south-st-pete-app`)
+3. `infra/run_migration.sh up` (applies schema changes as the database owner; `status` and `report` are read-only. `report` prints uploaded filenames into the CloudWatch log group `/ecs/south-st-pete-app`). If `up` fails with a lock timeout (the live api was mid-query), nothing was changed; just run it again
 4. Update the ECS `api` service to the new task definition.
 
 The api logs into RDS as a limited `app_runtime` role that can read and write rows but can't change the schema. Only the one-off migrate task uses the master credentials (DECISIONS #160). Read `.claude/rules/secrets.md` before running any command against `.env`.
