@@ -1,7 +1,9 @@
 #!/bin/bash
-# Fills infra/api-taskdef.template.json placeholders from the
-# repo-root .env (never committed — DECISIONS #69) and registers the
-# task definition for real. Templates hold ONLY placeholders
+# Fills infra/{api,migrate}-taskdef.template.json placeholders from the
+# repo-root .env (never committed — DECISIONS #69) and registers both
+# task definitions for real. The api runs as the limited app_runtime DB
+# role; only the one-off migrate task gets the RDS master credentials
+# (DECISIONS #160). Templates hold ONLY placeholders
 # (__PLACEHOLDER__ tokens), never real values — .claude/rules/deploy.md's
 # "secrets never live in committed config" rule (DECISIONS #119/#120:
 # plain environment variables are this project's chosen secrets path,
@@ -13,7 +15,7 @@
 #   IMAGE_TAG=<git-sha> infra/register_app_taskdefs.sh
 # Requires: AWS_PROFILE set, python with python-dotenv (the repo .venv),
 # .env present with RDS_HOST/RDS_MASTER_USERNAME/RDS_MASTER_PASSWORD/
-# OPENAI_API_KEY/UPLOAD_API_KEY, docker image already pushed to ECR under
+# APP_RUNTIME_DB_PASSWORD/OPENAI_API_KEY/UPLOAD_API_KEY, docker image already pushed to ECR under
 # the given tag.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,7 +35,7 @@ IMAGE="${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/south-st-pete-app:${IMAGE_T
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-for role in api; do
+for role in api migrate; do
   OUT_FILE="${TMP_DIR}/${role}-taskdef.json"
   # .env is parsed by python-dotenv (handles quoting and CRLF line endings),
   # not `source`d by the shell, and placeholders are replaced as literal JSON
@@ -48,7 +50,7 @@ from dotenv import dotenv_values
 
 template_path, image, account_id = sys.argv[1:4]
 env = {k: (v or "").strip() for k, v in dotenv_values(".env", interpolate=False).items()}
-required = ["RDS_HOST", "RDS_MASTER_USERNAME", "RDS_MASTER_PASSWORD", "OPENAI_API_KEY", "UPLOAD_API_KEY"]
+required = ["RDS_HOST", "RDS_MASTER_USERNAME", "RDS_MASTER_PASSWORD", "APP_RUNTIME_DB_PASSWORD", "OPENAI_API_KEY", "UPLOAD_API_KEY"]
 bad = [k for k in required if not env.get(k) or env[k].lower().startswith(("changeme", "sk-changeme"))]
 if bad:
     sys.exit("Refusing to register: missing or still-placeholder in .env: " + ", ".join(bad))
@@ -58,6 +60,7 @@ values = {
     "__DB_HOST__": env["RDS_HOST"],
     "__RDS_MASTER_USERNAME__": env["RDS_MASTER_USERNAME"],
     "__RDS_MASTER_PASSWORD__": env["RDS_MASTER_PASSWORD"],
+    "__APP_RUNTIME_DB_PASSWORD__": env["APP_RUNTIME_DB_PASSWORD"],
     "__OPENAI_API_KEY__": env["OPENAI_API_KEY"],
     "__UPLOAD_API_KEY__": env["UPLOAD_API_KEY"],
 }
