@@ -1910,3 +1910,10 @@ Decision: B1 creates the user pool with `infra/register_cognito.sh`. Each settin
 
 Why: verifying vendor behavior before building on it was a design-review requirement (#158 plan, review item 1), and it surfaced a real blocker before any B5 code was written.
 Date: 2026-10-19
+
+#162 B1 rollout and acceptance test, 2026-10-19/20 (each AWS step run by Amber; read-only checks by Claude):
+- The deploy user had hit AWS's 10-managed-policies-per-user limit. Detached `AmazonEventBridgeSchedulerFullAccess`, which has been unused since the scheduler teardown (#159), then created and attached `coalition-grant-app-cognito` (v2 adds read-only verification actions).
+- `register_cognito.sh` created pool `us-east-1_0KsvGD5bp`, domain `coalition-grants-747774`, client `5acluurhis281cmi3jq6136bm2`, and the managed-login branding. Verified afterward (read-only): Essentials tier, MFA ON with TOTP only (SMS/email off), admin-create only, deletion protection, verified-email recovery, a 12-character password minimum. The client has no secret, code flow only, refresh-only explicit flows, the localhost callback, read email/email_verified, write email, a 15-minute auth session, 60-minute tokens, a 12-hour refresh, and revocation on.
+- **Acceptance test: PASS, outcome (a).** Amber invited herself. At first sign-in through managed login, she set a permanent password and was then required to enroll TOTP before the redirect to `localhost:8000` with a code. A second sign-in demanded the 6-digit TOTP code before redirecting, so MFA is enforced. Managed login works with refresh-only explicit flows, which resolves review MED1.
+- Observed quirk: after enrollment, `admin-get-user` shows `UserStatus=CONFIRMED` but `UserMFASettingList` and `PreferredMfaSetting` are both null, even though TOTP is enforced at sign-in. Don't use those fields to judge whether a user has MFA. The second sign-in prompt is the reliable check.
+- Amber's own Cognito account now exists (her real account, reused by the B4 bootstrap). Erica is invited at B4.
