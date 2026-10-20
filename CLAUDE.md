@@ -2,7 +2,7 @@
 
 (Repurposed in place from "Blaq Blob" / South St. Petersburg Infrastructure Intelligence — DECISIONS #158. That tool's crawlers, Granicus transcription pipeline, and civic-records corpus were dropped; its grounded-RAG core, upload path, and AWS deploy were kept.)
 
-A multi-organization grant application tool for the Florida coalition, administered by the Florida Food Policy Council (FLFPC; Erica Hall, initial admin lead). It uses each organization's authorized documents to discover funding opportunities, assess fit, draft application fields one at a time with cited sources, route drafts through separate writer → partner → reviewer → approver steps, and track submissions and award obligations. This is a real operational tool that has to outlast any one person's day-to-day involvement, so whoever inherits it can run it without a live walkthrough (DECISIONS #136).
+A multi-tenant fundraising platform for nonprofits, offered as a subscription (DECISIONS #165). Each organization is an isolated tenant with its own logins, documents, application history and funder relationships. The Florida coalition, administered by the Florida Food Policy Council (FLFPC; Erica Hall, initial admin lead), is the first customer, and its requirements still bind. It uses each organization's authorized documents to discover funding opportunities, assess fit, draft application fields one at a time with cited sources, route drafts through separate writer → partner → reviewer → approver steps, and track submissions and award obligations. This is a real operational tool that has to outlast any one person's day-to-day involvement, so whoever inherits it can run it without a live walkthrough (DECISIONS #136).
 
 The requirements source is the "Coalition Grant App — Requirements Questionnaire" (Oct. 6, 2026, Erica's completed draft). Items it marks "Proposed" or "Confirm" are not settled requirements. Don't build on them as if they were; record the working assumption in DECISIONS.md.
 
@@ -42,7 +42,9 @@ The detailed design plan is kept locally, not committed.
 - No Kubernetes, no Terraform/IaC this cycle (DECISIONS #2).
 - One AWS deploy target (Fargate) (DECISIONS #1).
 - **No real partner documents on any deployed instance until Phase C's per-org retrieval scoping and its cross-org leak tests have shipped.** Phase B's logins alone aren't enough: without C, any signed-in user's `/query` searches every org's documents. The deployed instance also needs HTTPS on a stable hostname first (DECISIONS #162): today it's plain http on a changing IP, and Cognito won't redirect to it. Today the only gate is a single shared upload key (DECISIONS #144), and `/query` and `/sources` are open. That's fine for test data and wrong for EINs, financials, or banking details.
-- **The app never submits applications or sends email in the first version** — it prepares packages for a designated human submitter (questionnaire 7.1, 3.3).
+- **The app prepares; the org acts.** It never submits applications and never emails funders on an org's behalf. It drafts, packages, reminds and gives copy-ready answers (questionnaire 7.1, #165). System notifications to the app's own users (deadlines, assignments) are allowed (#159).
+- **Every org is a tenant like any other.** No special-casing FLFPC in code. Private data carries `org_id`. Data shared across tenants comes from public sources only (#165).
+- **"Learning" is per-org memory, never model training** on client data (questionnaire 8.5, #165).
 - **The app never stores funder-portal passwords, recovery codes, or MFA secrets**, and credentials are never available to the AI drafting process (questionnaire 9.3, 9.4).
 - **Generated text never invents** achievements, metrics, partner commitments, or future funding. Every factual claim traces to a cited, authorized source; anything without a source gets flagged instead of written (questionnaire 5.4).
 - A writer can never approve their own application (questionnaire 2.1).
