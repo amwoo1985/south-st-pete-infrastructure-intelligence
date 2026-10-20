@@ -112,7 +112,17 @@ def test_every_table_grants_runtime_role_row_access(mconn):
     """Catches a future migration whose table the API can't use (default
     privileges cover tables created by the migrating role; anything narrower
     must be an explicit, listed exception)."""
-    expected_exceptions = {"schema_migrations": {"SELECT"}, "users": {"SELECT"}}
+    expected_exceptions = {
+        "schema_migrations": {"SELECT"},
+        "users": {"SELECT"},
+        # 0005: table-level rights only; revocation/rename go through
+        # column-level UPDATE grants, and audit_log is written only by
+        # SECURITY DEFINER functions (DECISIONS #166).
+        "organizations": {"SELECT", "INSERT"},
+        "org_memberships": {"SELECT", "INSERT"},
+        "support_access_grants": {"SELECT", "INSERT"},
+        "audit_log": set(),
+    }
     with mconn.cursor() as cur:
         cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
         tables = [row[0] for row in cur.fetchall()]
@@ -263,6 +273,9 @@ def test_runtime_role_cannot_create_promote_or_reenable_users(runtime):
 
 
 def test_users_email_is_unique_case_insensitively(mconn):
+    from tests.conftest import as_system_job
+
+    as_system_job(mconn)
     with mconn.cursor() as cur:
         cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-a-dup', 'erica@example.org')")
         with pytest.raises(psycopg.errors.CheckViolation):
@@ -273,3 +286,20 @@ def test_users_email_is_unique_case_insensitively(mconn):
         with pytest.raises(psycopg.errors.UniqueViolation):
             cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-b-dup', 'erica@example.org')")
     mconn.rollback()
+
+
+def test_privileged_allowlist_has_migration_role_and_not_runtime(mconn):
+    with mconn.cursor() as cur:
+        cur.execute(
+            "SELECT r.rolname FROM pg_auth_members am "
+            "JOIN pg_roles g ON g.oid = am.roleid JOIN pg_roles r ON r.oid = am.member "
+            "WHERE g.rolname = 'app_privileged'"
+        )
+        members = {row[0] for row in cur.fetchall()}
+        cur.execute("SELECT current_user")
+        me = cur.fetchone()[0]
+        cur.execute("SELECT pg_has_role('app_runtime', 'app_privileged', 'MEMBER')")
+        runtime_member = cur.fetchone()[0]
+    mconn.rollback()
+    assert me in members
+    assert "app_runtime" not in members and runtime_member is False

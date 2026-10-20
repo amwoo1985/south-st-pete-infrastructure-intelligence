@@ -90,12 +90,14 @@ def load_active_principal(conn, cognito_sub: str) -> Principal | None:
     )
 
 
-def get_principal(request: Request) -> Principal:
+def verified_claims(request: Request) -> dict:
+    """The verified claims of the request's bearer token, or the matching
+    HTTP error. Touches no database."""
     token = _bearer_token(request)
     if token is None:
         raise _unauthorized()
     try:
-        claims = verify_access_token(token)
+        return verify_access_token(token)
     except AuthNotConfiguredError as exc:
         logger.error("authentication not configured: %s", exc)
         raise _unavailable()
@@ -105,6 +107,13 @@ def get_principal(request: Request) -> Principal:
     except TokenError as exc:
         logger.info("rejected token: %s", exc)
         raise _unauthorized()
+
+
+def get_principal(request: Request) -> Principal:
+    """Identity only, for routes that don't touch tenant data. Routes that
+    read or write the database use app.auth.context.get_auth_context, which
+    shares one connection and tells the database who's acting."""
+    claims = verified_claims(request)
 
     # Only a genuine, current token gets this far. Own connection, closed
     # immediately, so no idle transaction is left on the route's connection.
