@@ -1845,3 +1845,22 @@ Live AWS state, read-only check on 2026-10-19 (for item 4):
 - Step 4, 2026-10-19: deleted `south-st-pete-scheduler-execution-role` and `south-st-pete-granicus-scheduler-execution-role`, with their policies removed first. Verified afterward (read-only): the only `south-st-pete` role left is `south-st-pete-ecs-task-execution-role`, which the api still uses.
 - Step 5, 2026-10-19: deleted the ECR repo `south-st-pete-app-migrate` along with its images. This one is irreversible; the code those images held is still in git history. Verified afterward (read-only): `south-st-pete-app` is the only repo left, and `south-st-pete-api` is ACTIVE, 1/1.
 - Teardown complete. Remaining, intentionally: `south-st-pete-api` (still on the pre-#158 image `32fa151` until this branch merges and redeploys), the `south-st-pete-app` repo, `south-st-pete-ecs-task-execution-role`, and RDS (the corpus purge runs as a B0 migration). Still open and unrelated to this teardown: #140's credential in IAM tag metadata.
+
+## #160 — Ordered schema migrations and a limited runtime DB role (Phase B, layer B0)
+
+Decision: the schema now changes only through numbered SQL files in `app/db/migrations/`, applied in order by `python -m app.db.migrate up` and recorded with checksums in `schema_migrations`. Editing an already-applied file fails loud. The API no longer runs any DDL at startup. It calls `assert_schema_current` and refuses to boot if a migration is pending.
+
+The API connects as a new role, `app_runtime`, which gets `SELECT/INSERT/UPDATE/DELETE` on the application tables, read-only access to `schema_migrations` (its startup check reads it), and nothing else: no DDL, no ownership. Default privileges give tables created by later migrations the same row-level rights. A table that needs narrower rights (e.g. B3's insert-only audit log) must REVOKE explicitly, and a test sweeps every table against an explicit exceptions list. The password is SCRAM-hashed client-side before the `ALTER ROLE`, so plaintext never reaches a Postgres log. Until now the deployed API logged in as the RDS master user. Only the one-off `south-st-pete-migrate` task (`infra/run_migration.sh`) receives the master credentials. The runner creates the role and sets its password from `APP_RUNTIME_DB_PASSWORD`.
+
+- `0001_baseline` is fully idempotent (`IF NOT EXISTS`, the #154 content_hash lock), so the live RDS and existing dev volumes adopt it unchanged.
+- `0002_app_runtime_grants` grants the runtime role its rights. "No CREATE TABLE" relies on PostgreSQL 15+ not granting CREATE on `public` to PUBLIC. RDS is 16.4 (read 2026-10-19) and local is pg16, and a test asserts it.
+- The #159 purge is **not** in this layer. `infra/run_migration.sh report` prints a read-only summary first (row counts, and each `document_uploads` filename/status/date) so Amber can confirm nothing real gets deleted. The purge migration lands as a separate commit after that.
+
+Why: Phase C's row-level security and Phase B3's insert-only audit log both require that the API not own the tables (the design-plan review's HIGH #4), and superusers or table owners would read straight past per-org walls. Logging in as master was also simply excess privilege.
+
+Migrations each run in one transaction (no CONCURRENTLY/VACUUM/COMMIT inside a file), with `lock_timeout = 5s` so `up` fails fast instead of stalling the live API.
+
+Pre-commit review (deploy-review) found 1 HIGH: the API couldn't boot as `app_runtime` because it lacked SELECT on `schema_migrations`, and the tests passed only because they all connected as the superuser. It also found 6 MED and 6 LOW. All are applied except: the MED about 0001 not noticing a still-nullable prod `content_hash` (mitigated by running `report` before `up`); LOW about plain-env credentials (unchanged from #119/#120); LOW about `run_migration.sh` wait timeouts. 0002 was edited in place because it had never been committed or run outside local dev.
+
+Verified: 135 tests pass (14 new in `tests/db/test_migrate.py`, including the API's startup check run as `app_runtime`, a SCRAM-stored password, an every-table grant sweep, and a real `app_runtime` login that can read/write rows while CREATE/ALTER/DROP and writes to `schema_migrations` are refused). Also ran `up` against a fresh throwaway database: both migrations applied, schema complete. Not yet run against AWS.
+Date: 2026-10-19

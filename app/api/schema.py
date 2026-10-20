@@ -1,11 +1,6 @@
-"""``document_uploads`` table DDL — the idempotency ledger for
-POST /documents/upload (app/api/documents.py). Mirrors
-app/granicus/schema.py's pattern: a sibling apply_*_schema() function
-rather than folding into app/db/schema.py's apply_schema(), which
-docstring-scopes itself to the ``chunks`` table only (DECISIONS #71).
-Same reasoning applies here — a second, unrelated table's DDL doesn't
-belong bolted onto a module that already declares a narrower scope for
-itself; app/api/main.py calls both apply functions at startup.
+"""``document_uploads`` column list — the idempotency ledger for
+POST /documents/upload (app/api/documents.py). The DDL lives in the
+ordered migrations under app/db/migrations/ (DECISIONS #160).
 
 One row per uploaded file's content hash (file_hash = sha256 of the raw
 uploaded bytes), never per upload attempt — this is what makes the
@@ -15,7 +10,6 @@ upload endpoint's idempotency-on-hash contract a DB-enforced fact
 
 from __future__ import annotations
 
-import psycopg
 
 # Explicit column list, reused by every INSERT/SELECT/UPDATE this module
 # and app/api/documents.py write — .claude/rules/data.md bars `SELECT *`.
@@ -54,25 +48,3 @@ DOCUMENT_UPLOAD_COLUMNS: tuple[str, ...] = (
     "uploaded_at",
     "completed_at",
 )
-
-_CREATE_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS document_uploads (
-    file_hash TEXT PRIMARY KEY,
-    original_filename TEXT NOT NULL,
-    content_type TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('processing', 'completed', 'failed')),
-    failure_reason TEXT,
-    chunk_count INTEGER,
-    uploaded_at TIMESTAMPTZ NOT NULL,
-    completed_at TIMESTAMPTZ
-);
-"""
-
-
-def apply_document_uploads_schema(conn: psycopg.Connection) -> None:
-    """Idempotent: safe to call on every process start (CREATE TABLE IF
-    NOT EXISTS). Commits its own transaction — call this once at app
-    startup (app/api/main.py's lifespan), not per-request."""
-    with conn.cursor() as cur:
-        cur.execute(_CREATE_TABLE_SQL)
-    conn.commit()

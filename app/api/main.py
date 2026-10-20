@@ -21,23 +21,21 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api import documents, health, query, sources
-from app.api.schema import apply_document_uploads_schema
 from app.db.connection import get_connection
-from app.db.schema import apply_schema
+from app.db.migrate import assert_schema_current
 
 logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Idempotent CREATE TABLE/INDEX IF NOT EXISTS for every table this
-    API layer touches on startup: `chunks` (app/db/schema.py) and
-    `document_uploads` (app/api/schema.py). Safe to call on every process
-    start — both functions are CREATE ... IF NOT EXISTS, not migrations."""
+    """Refuses to start if the database schema is behind this build or an
+    applied migration was edited (app/db/migrate.py, DECISIONS #160). The
+    API never runs DDL: migrations are applied separately, as the
+    table-owning role, before a deploy."""
     conn = get_connection()
     try:
-        apply_schema(conn)
-        apply_document_uploads_schema(conn)
+        assert_schema_current(conn)
     finally:
         conn.close()
     yield

@@ -72,3 +72,25 @@ def get_connection() -> psycopg.Connection:
     )
     register_vector(conn)
     return conn
+
+
+def get_migration_connection() -> psycopg.Connection:
+    """Opens one connection for schema migrations (app/db/migrate.py), as the
+    table-owning role rather than the API's limited runtime role.
+
+    Uses ``MIGRATION_DB_USER``/``MIGRATION_DB_PASSWORD`` when set (deployed:
+    the RDS master user, supplied only to the one-off migrate task), falling
+    back to ``LOCAL_DB_USER``/``LOCAL_DB_PASSWORD`` (local dev, where the
+    compose superuser owns everything). No pgvector adapter is registered:
+    the baseline migration is what creates the ``vector`` extension on a
+    fresh database, so it can't be assumed to exist yet.
+    """
+    user = os.environ.get("MIGRATION_DB_USER") or _env("LOCAL_DB_USER")
+    password = os.environ.get("MIGRATION_DB_PASSWORD") or _env("LOCAL_DB_PASSWORD")
+    return psycopg.connect(
+        host=os.environ.get("LOCAL_DB_HOST", "127.0.0.1"),
+        port=os.environ.get("LOCAL_DB_PORT", "5432"),
+        user=user,
+        password=password,
+        dbname=_env("LOCAL_DB_NAME"),
+    )

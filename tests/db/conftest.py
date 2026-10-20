@@ -25,16 +25,6 @@ from __future__ import annotations
 import pytest
 
 from app.db.connection import get_connection
-from app.db.schema import apply_schema
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _schema_ready():
-    conn = get_connection()
-    try:
-        apply_schema(conn)
-    finally:
-        conn.close()
 
 
 @pytest.fixture

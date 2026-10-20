@@ -1,0 +1,5 @@
+# Line endings that must not change on checkout:
+# - migration checksums are computed over file contents (app/db/migrate.py)
+# - bash scripts fail with CRLF line endings
+*.sql text eol=lf
+*.sh text eol=lf
