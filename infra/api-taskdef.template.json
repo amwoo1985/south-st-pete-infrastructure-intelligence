@@ -14,8 +14,8 @@
       "portMappings": [{"containerPort": 8000, "protocol": "tcp"}],
       "environment": [
         {"name": "LOCAL_DB_HOST", "value": "__DB_HOST__"},
-        {"name": "LOCAL_DB_USER", "value": "__RDS_MASTER_USERNAME__"},
-        {"name": "LOCAL_DB_PASSWORD", "value": "__RDS_MASTER_PASSWORD__"},
+        {"name": "LOCAL_DB_USER", "value": "app_runtime"},
+        {"name": "LOCAL_DB_PASSWORD", "value": "__APP_RUNTIME_DB_PASSWORD__"},
         {"name": "LOCAL_DB_NAME", "value": "southstpete"},
         {"name": "LOCAL_DB_PORT", "value": "5432"},
         {"name": "OPENAI_API_KEY", "value": "__OPENAI_API_KEY__"},

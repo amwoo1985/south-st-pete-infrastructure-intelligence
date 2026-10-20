@@ -2,8 +2,8 @@
 
 Every test in this directory requires the docker-compose `db` service to
 be up, same as tests/db/ (tests/db/conftest.py's docstring) — app.api.main
-imports app.db.connection/app.db.schema directly and its lifespan applies
-real schema on startup, and several routes (`/sources`, `/documents/
+imports app.db.connection directly and its lifespan checks the real
+schema is current on startup (tests/conftest.py migrates it first), and several routes (`/sources`, `/documents/
 upload`) do real reads/writes against the real `chunks`/`document_uploads`
 tables rather than a mocked DB, consistent with this repo's "no precedent
 for mocking Postgres" convention (tests/db/conftest.py).
@@ -28,8 +28,7 @@ from app.api.main import app
 @pytest.fixture(scope="session")
 def client():
     # TestClient as a context manager triggers app.api.main's lifespan
-    # (startup: apply_schema + apply_document_uploads_schema against the
-    # real local DB; shutdown: nothing, no teardown needed) exactly like a
+    # (startup: assert_schema_current against the real local DB; shutdown: nothing, no teardown needed) exactly like a
     # real `uvicorn` run would.
     with TestClient(app) as test_client:
         yield test_client
