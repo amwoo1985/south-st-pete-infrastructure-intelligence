@@ -21,7 +21,7 @@ otherwise it exists as NOLOGIN so grants still apply.
 Usage:
     python -m app.db.migrate up       # apply pending migrations
     python -m app.db.migrate status   # list applied / pending, change nothing
-    python -m app.db.migrate report   # read-only data summary (pre-purge check)
+    python -m app.db.migrate report   # read-only summary of data-table contents
 """
 
 from __future__ import annotations
@@ -204,17 +204,27 @@ def assert_schema_current(conn: psycopg.Connection) -> None:
 
 
 def report(conn: psycopg.Connection) -> list[str]:
-    """Read-only summary of what's in the data tables — what a purge would
-    remove. Returns printable lines."""
+    """Read-only summary of what's in the data tables, live and archived. Returns printable lines."""
     lines = []
     with conn.cursor() as cur:
-        for table in ("chunks", "document_uploads", "crawl_runs", "granicus_transcription_jobs"):
-            cur.execute("SELECT to_regclass(%s)", (f"public.{table}",))
+        for schema, table in (
+            ("public", "chunks"),
+            ("public", "document_uploads"),
+            ("public", "crawl_runs"),
+            ("public", "granicus_transcription_jobs"),
+            ("archive", "civic_chunks"),
+            ("archive", "document_uploads"),
+            ("archive", "crawl_runs"),
+            ("archive", "granicus_transcription_jobs"),
+        ):
+            cur.execute("SELECT to_regclass(%s)", (f"{schema}.{table}",))
             if cur.fetchone()[0] is None:
-                lines.append(f"{table}: (table does not exist)")
+                if schema == "public":
+                    lines.append(f"{table}: (table does not exist)")
                 continue
-            cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
-            lines.append(f"{table}: {cur.fetchone()[0]} rows")
+            cur.execute(sql.SQL("SELECT count(*) FROM {}.{}").format(sql.Identifier(schema), sql.Identifier(table)))
+            label = table if schema == "public" else f"{schema}.{table}"
+            lines.append(f"{label}: {cur.fetchone()[0]} rows")
         if any(line.startswith("chunks:") and "does not exist" not in line for line in lines):
             cur.execute("SELECT doc_type, count(*) FROM chunks GROUP BY doc_type ORDER BY doc_type")
             for doc_type, n in cur.fetchall():

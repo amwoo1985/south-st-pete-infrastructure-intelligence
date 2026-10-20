@@ -112,14 +112,7 @@ def test_every_table_grants_runtime_role_row_access(mconn):
     """Catches a future migration whose table the API can't use (default
     privileges cover tables created by the migrating role; anything narrower
     must be an explicit, listed exception)."""
-    expected_exceptions = {
-        "schema_migrations": {"SELECT"},
-        # Legacy civic-records tables (pre-#158), unused by the API and not
-        # granted. The #159 purge migration drops them; remove these two
-        # entries in that commit.
-        "crawl_runs": set(),
-        "granicus_transcription_jobs": set(),
-    }
+    expected_exceptions = {"schema_migrations": {"SELECT"}}
     with mconn.cursor() as cur:
         cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
         tables = [row[0] for row in cur.fetchall()]
@@ -167,3 +160,86 @@ def test_checksum_ignores_crlf_vs_lf(tmp_path):
     (lf / "0001_a.sql").write_bytes(b"SELECT 1;\nSELECT 2;\n")
     (crlf / "0001_a.sql").write_bytes(b"SELECT 1;\r\nSELECT 2;\r\n")
     assert migrate.load_migrations(lf)[0].checksum == migrate.load_migrations(crlf)[0].checksum
+
+
+def test_runtime_role_has_no_access_to_archive(mconn):
+    with mconn.cursor() as cur:
+        cur.execute("SELECT has_schema_privilege(%s, 'archive', 'USAGE')", (migrate.RUNTIME_ROLE,))
+        assert cur.fetchone()[0] is False
+
+
+@pytest.fixture
+def scratch_db_env(monkeypatch):
+    """A throwaway database for migration tests that need a known
+    starting state; dropped afterwards."""
+    name = "migrate_test_" + secrets.token_hex(4)
+    admin = get_migration_connection()
+    admin.autocommit = True
+    try:
+        admin.execute(psycopg.sql.SQL("CREATE DATABASE {}").format(psycopg.sql.Identifier(name)))
+        monkeypatch.setenv("LOCAL_DB_NAME", name)
+        yield name
+    finally:
+        admin.execute(psycopg.sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
+        admin.close()
+
+
+def _rows_as_text(cur, table):
+    cur.execute(psycopg.sql.SQL("SELECT t::text FROM {} t ORDER BY 1").format(psycopg.sql.SQL(table)))
+    return [row[0] for row in cur.fetchall()]
+
+
+def test_archive_migration_moves_every_row_and_loses_none(scratch_db_env):
+    all_migrations = migrate.load_migrations()
+    before_archive = [m for m in all_migrations if m.version < "0003"]
+    conn = get_migration_connection()
+    try:
+        migrate.up(conn, before_archive)
+        with conn.cursor() as cur:
+            # A column this repo has never heard of (e.g. hand-added in prod)
+            # must survive the move too.
+            cur.execute("ALTER TABLE chunks ADD COLUMN prod_only_note TEXT")
+            cur.execute("CREATE TABLE crawl_runs (id int)")
+            cur.execute("INSERT INTO crawl_runs VALUES (1), (2)")
+            for i in range(3):
+                cur.execute(
+                    "INSERT INTO chunks (chunk_id, doc_type, chunk_text, content_hash, source_url, "
+                    "retrieval_timestamp, embedding, prod_only_note) "
+                    "VALUES (%s, 'legistar', %s, 'h', 'https://x', now(), %s, %s)",
+                    (f"c{i}", f"text {i}", "[" + ",".join([f"0.{i + 1}"] * 1536) + "]", f"note {i}"),
+                )
+            cur.execute(
+                "INSERT INTO document_uploads (file_hash, original_filename, content_type, status, uploaded_at) "
+                "VALUES ('f1', 'cba_draft.pdf', 'application/pdf', 'completed', now())"
+            )
+            chunks_before = _rows_as_text(cur, "public.chunks")
+            uploads_before = _rows_as_text(cur, "public.document_uploads")
+            crawl_before = _rows_as_text(cur, "public.crawl_runs")
+        conn.commit()
+
+        assert migrate.up(conn, all_migrations) == ["0003_archive_civic_corpus"]
+
+        with conn.cursor() as cur:
+            # Every row, every column (vector and prod-only column included),
+            # byte-for-byte.
+            assert _rows_as_text(cur, "archive.civic_chunks") == chunks_before
+            assert _rows_as_text(cur, "archive.document_uploads") == uploads_before
+            assert _rows_as_text(cur, "archive.crawl_runs") == crawl_before
+            # Fresh, empty, usable application tables.
+            cur.execute("SELECT count(*) FROM public.chunks")
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT count(*) FROM public.document_uploads")
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT to_regclass('public.crawl_runs')")
+            assert cur.fetchone()[0] is None
+            cur.execute("SELECT to_regclass('public.chunks_embedding_hnsw_idx')")
+            assert cur.fetchone()[0] is not None
+            # Runtime role: full row access to the new tables, none to archive.
+            for table in ("public.chunks", "public.document_uploads"):
+                cur.execute("SELECT has_table_privilege(%s, %s, 'INSERT')", (migrate.RUNTIME_ROLE, table))
+                assert cur.fetchone()[0] is True
+            cur.execute("SELECT has_schema_privilege(%s, 'archive', 'USAGE')", (migrate.RUNTIME_ROLE,))
+            assert cur.fetchone()[0] is False
+        conn.rollback()
+    finally:
+        conn.close()

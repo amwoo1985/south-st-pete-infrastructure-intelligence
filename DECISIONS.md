@@ -1864,3 +1864,16 @@ Pre-commit review (deploy-review) found 1 HIGH: the API couldn't boot as `app_ru
 
 Verified: 135 tests pass (14 new in `tests/db/test_migrate.py`, including the API's startup check run as `app_runtime`, a SCRAM-stored password, an every-table grant sweep, and a real `app_runtime` login that can read/write rows while CREATE/ALTER/DROP and writes to `schema_migrations` are refused). Also ran `up` against a fresh throwaway database: both migrations applied, schema complete. Not yet run against AWS.
 Date: 2026-10-19
+
+## #161 — Keep the old civic-records data (snapshot + archive), superseding #159's purge
+
+Decision: on 2026-10-19 Amber reversed #159 item 2: "I'd really like to keep all of it. I paid for it." The old St. Petersburg corpus represents real OpenAI spend (Whisper transcriptions and embeddings). Nothing is deleted. Instead:
+1. **RDS manual snapshot** of `south-st-pete-dev-db`, taken before any migration runs against production. It's the untouchable backup, restorable to a new instance at any time. Amber runs the command.
+2. **Archive migration (0003)** moves the old data out of the grant app's way rather than deleting it. The existing `chunks`, `document_uploads`, `crawl_runs` and `granicus_transcription_jobs` tables are **moved** into an `archive` schema with `ALTER TABLE ... SET SCHEMA` (`chunks` is renamed `civic_chunks`), and fresh empty application tables are created in `public`. `app_runtime` gets no access to `archive`, so the grant app can't retrieve, cite or leak any of it.
+
+The first draft copied rows and then deleted the originals. Pre-commit review (deploy-review) found a HIGH, reproduced by running it: under READ COMMITTED, a row the still-running old API committed between the count check and the DELETE would be deleted without ever being archived, silently. Moving the tables is atomic under ACCESS EXCLUSIVE, so there is no copy window. Every column travels with the table, including any prod-only column the repo doesn't know about (a MED from the same review). A test proves byte-for-byte row preservation, including a vector column and an unknown extra column.
+
+Rollout note: the old API image stays live during `up`. After 0003, its reads and writes go to the new empty `public` tables, so switch the service to the new image promptly. A restart of the old image would also recreate empty legacy tables in `public` (harmless to data).
+
+Why: preserves paid-for work and keeps the CBA corpus usable if that tool is ever revived, while still giving Phase C an empty, org-scoped `public.chunks` to build on.
+Date: 2026-10-19
