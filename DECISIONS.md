@@ -1917,3 +1917,21 @@ Date: 2026-10-19
 - **Acceptance test: PASS, outcome (a).** Amber invited herself. At first sign-in through managed login, she set a permanent password and was then required to enroll TOTP before the redirect to `localhost:8000` with a code. A second sign-in demanded the 6-digit TOTP code before redirecting, so MFA is enforced. Managed login works with refresh-only explicit flows, which resolves review MED1.
 - Observed quirk: after enrollment, `admin-get-user` shows `UserStatus=CONFIRMED` but `UserMFASettingList` and `PreferredMfaSetting` are both null, even though TOTP is enforced at sign-in. Don't use those fields to judge whether a user has MFA. The second sign-in prompt is the reliable check.
 - Amber's own Cognito account now exists (her real account, reused by the B4 bootstrap). Erica is invited at B4.
+
+## #163 — Deploy user loses IAMFullAccess; separate MFA-protected admin login for rare IAM work
+
+Decision: on 2026-10-20 Amber chose to tighten the deploy user. `south-st-pete-infra-dev` had `IAMFullAccess`, so anyone holding its access keys could grant themselves anything in the account. It was the only IAM user, and root has MFA.
+
+What was done (each step by Amber; read-only checks by Claude):
+1. Created a separate admin IAM user with `AdministratorAccess`, a console login (Amber set her own password after a temporary one generated in her terminal, never shown in the session), an authenticator MFA device, and **no access keys** (console only).
+2. Signed in to the console as the admin IAM user and removed `IAMFullAccess` from the deploy user. Doing it this way proved the admin login can make IAM changes before the deploy user lost them.
+3. Verified afterward: the deploy user is denied `iam:ListAttachedUserPolicies`, while ECS, ECR and Cognito reads still work.
+
+Why it's safe for deploys: the only IAM action the deploy scripts need is `iam:PassRole` for the task execution role, and `AmazonECS_FullAccess` already grants PassRole to `ecs-tasks.amazonaws.com` (read from the policy document on 2026-10-20). **Not yet proven live**; the next `register_app_taskdefs.sh` run confirms it.
+
+Going forward: IAM changes (new policies, attachments) are made as the admin IAM user in the console, or via a short-lived admin CLI session, never by re-granting IAM rights to the deploy user. Process note: a mutating `iam:CreateUser` call was used as a negative test during verification; it was correctly denied, but a read-only check alone would have sufficed, and future verifications stay read-only.
+
+Unrelated, not investigated: two IAM roles in the account weren't created by this project; their origin and permissions are unreviewed.
+
+Why: least privilege for the credential the deploy scripts use. A leaked deploy key can no longer escalate itself.
+Date: 2026-10-20
