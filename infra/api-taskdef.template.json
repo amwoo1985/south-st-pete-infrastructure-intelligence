@@ -4,7 +4,7 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
   "memory": "512",
-  "executionRoleArn": "arn:aws:iam::516887747774:role/south-st-pete-ecs-task-execution-role",
+  "executionRoleArn": "arn:aws:iam::__ACCOUNT_ID__:role/south-st-pete-ecs-task-execution-role",
   "containerDefinitions": [
     {
       "name": "south-st-pete-api",
