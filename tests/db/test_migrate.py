@@ -112,7 +112,7 @@ def test_every_table_grants_runtime_role_row_access(mconn):
     """Catches a future migration whose table the API can't use (default
     privileges cover tables created by the migrating role; anything narrower
     must be an explicit, listed exception)."""
-    expected_exceptions = {"schema_migrations": {"SELECT"}}
+    expected_exceptions = {"schema_migrations": {"SELECT"}, "users": {"SELECT"}}
     with mconn.cursor() as cur:
         cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
         tables = [row[0] for row in cur.fetchall()]
@@ -217,7 +217,8 @@ def test_archive_migration_moves_every_row_and_loses_none(scratch_db_env):
             crawl_before = _rows_as_text(cur, "public.crawl_runs")
         conn.commit()
 
-        assert migrate.up(conn, all_migrations) == ["0003_archive_civic_corpus"]
+        through_archive = [m for m in all_migrations if m.version <= "0003_archive_civic_corpus"]
+        assert migrate.up(conn, through_archive) == ["0003_archive_civic_corpus"]
 
         with conn.cursor() as cur:
             # Every row, every column (vector and prod-only column included),
@@ -243,3 +244,32 @@ def test_archive_migration_moves_every_row_and_loses_none(scratch_db_env):
         conn.rollback()
     finally:
         conn.close()
+
+
+def test_runtime_role_cannot_create_promote_or_reenable_users(runtime):
+    for statement in (
+        "INSERT INTO users (cognito_sub, email) VALUES ('sub-escalate', 'x@example.org')",
+        "UPDATE users SET is_platform_admin = true",
+        "UPDATE users SET disabled_at = NULL",
+        "DELETE FROM users",
+    ):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            with runtime.cursor() as cur:
+                cur.execute(statement)
+        runtime.rollback()
+    with runtime.cursor() as cur:
+        cur.execute("SELECT count(*) FROM users")
+    runtime.rollback()
+
+
+def test_users_email_is_unique_case_insensitively(mconn):
+    with mconn.cursor() as cur:
+        cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-a-dup', 'erica@example.org')")
+        with pytest.raises(psycopg.errors.CheckViolation):
+            cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-b-dup', 'Erica@Example.org')")
+    mconn.rollback()
+    with mconn.cursor() as cur:
+        cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-a-dup', 'erica@example.org')")
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-b-dup', 'erica@example.org')")
+    mconn.rollback()

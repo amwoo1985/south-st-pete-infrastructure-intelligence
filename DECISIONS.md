@@ -1935,3 +1935,26 @@ Unrelated, not investigated: two IAM roles in the account weren't created by thi
 
 Why: least privilege for the credential the deploy scripts use. A leaked deploy key can no longer escalate itself.
 Date: 2026-10-20
+
+## #164 — Per-request identity: Cognito access-token verification + the app's own `users` table (Phase B, layer B2)
+
+Decision:
+- `app/auth/tokens.py` verifies a Cognito access token. The checks are: RS256 only, against the pool's JWKS, matched by `kid`; issuer equal to the pool's issuer URL; `token_use == "access"`; `client_id` equal to our app client; unexpired; and `exp/iat/iss/sub/token_use/client_id` all present. `aud` is not checked, because Cognito access tokens don't have one (design review HIGH #1). ID tokens are rejected even though they're validly signed. `alg: none` and HS256 algorithm-confusion forgeries are rejected before any key lookup. Missing or placeholder `COGNITO_*` settings make verification fail closed.
+- `app/auth/principal.py` provides `get_principal`, the FastAPI dependency protected routes will use. It verifies the token, then loads the person from `users` by `cognito_sub` **on every request**, and refuses anyone without an active row. Responses: 401 (no or invalid token, with `WWW-Authenticate: Bearer`), 403 (genuine token, no active account), 503 (auth not configured). Setting `users.disabled_at` cuts someone off on their next request even while their Cognito token is unexpired (design review HIGH #6).
+- Migration `0004_users`: the `users` table (`user_id` UUID, `cognito_sub` unique, `email`, `display_name`, `is_platform_admin`, `disabled_at`, `created_at`). `is_platform_admin` grants platform administration only, never document access (questionnaire 2.2, 8.1).
+- Layer split adjusted from the design plan: the `users` table moved from B3 into B2, because identity resolution needs it. B3 keeps organizations, memberships, assignments and the audit log.
+
+Hardening from the pre-commit review (api-review: 3 HIGH, 3 MED, 6 LOW; all HIGH/MED applied):
+- **Cognito outage → 503, not 401.** An unreachable or malformed key set raises `AuthUnavailableError` (503 plus an ERROR log), so an outage doesn't look like every user signing in wrong. Before the fix, some failures escaped as 500s.
+- **The token is checked before any DB connection opens.** Anonymous or junk requests can't exhaust RDS connections. The user lookup uses its own short connection, so no idle transaction is left on the route's connection.
+- **`app_runtime` can only SELECT from `users`** (explicit REVOKE in 0004, overriding 0002's default privileges). No API bug can create users, promote a platform admin, or re-enable a disabled account. Those go through the privileged migration/admin role.
+- **One row per person:** emails are stored lowercase and trimmed (CHECK) and unique.
+- **30 seconds of clock leeway** on `exp`/`iat`.
+- **A database outage during the account lookup returns 503**, not a raw 500 (from the second review round).
+- **Where the `users` restriction applies:** the deployed API connects as `app_runtime` (`south-st-pete-api:6`, `LOCAL_DB_USER=app_runtime`, verified at registration). Locally, the API and most tests connect as the compose superuser, so `tests/db/test_migrate.py` proves the restriction over a real `app_runtime` connection.
+- **Stated limit:** verification is local, so a Cognito sign-out or token revocation does **not** end an access token before its `exp` (up to 60 minutes). The kill switch is `users.disabled_at`. A per-request Cognito check or a `jti` denylist can be added later if self-service revocation must be immediate.
+
+Not done in B2, on purpose: no existing route requires sign-in yet; that's B4, which also passes `COGNITO_*` to the compose and ECS environments. New dependencies: `pyjwt[crypto]==2.15.1`, `cryptography==50.0.2`.
+
+Verified: 185 tests pass. New ones cover real RS256-signed tokens against a local key standing in for Cognito's JWKS, every rejection case (expired, wrong issuer, ID token, other client, other key, unknown or missing kid, each missing claim, alg none, HS256 confusion, tampered payload, garbage, missing or placeholder config), and the dependency over real HTTP against the real `users` table (active, no header, wrong scheme, invalid token, no account, disabled, disabled mid-session, unconfigured).
+Date: 2026-10-20
