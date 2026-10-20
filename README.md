@@ -55,11 +55,24 @@ docker-compose up --build
 
 Postgres + pgvector and the API (port 8000). UI at `http://localhost:8000/`. Copy `.env.example` to `.env` and fill it in first.
 
+The API never creates tables itself; it refuses to start if the database is behind. Apply migrations first (and after pulling changes that add one):
+
+```
+docker-compose run --rm api python -m app.db.migrate up
+```
+
 Tests: `pip install -r requirements.txt -r requirements-dev.txt`, start the `db` service, then `pytest`.
 
 ## Running it live
 
-AWS Fargate (`api` service) + RDS. Rebuild and push with `infra/build_push_app_image.sh`, then register the task definition with `infra/register_app_taskdefs.sh` and update the ECS service. Read `.claude/rules/secrets.md` before running any command against `.env`.
+AWS Fargate (`api` service) + RDS. Deploy in this order:
+
+1. `infra/build_push_app_image.sh` (build and push the image)
+2. `IMAGE_TAG=<sha> infra/register_app_taskdefs.sh` (registers the `api` and `migrate` task definitions)
+3. `infra/run_migration.sh up` (applies schema changes as the database owner; `status` and `report` are read-only. `report` prints uploaded filenames into the CloudWatch log group `/ecs/south-st-pete-app`)
+4. Update the ECS `api` service to the new task definition.
+
+The api logs into RDS as a limited `app_runtime` role that can read and write rows but can't change the schema. Only the one-off migrate task uses the master credentials (DECISIONS #160). Read `.claude/rules/secrets.md` before running any command against `.env`.
 
 ## Stack
 
