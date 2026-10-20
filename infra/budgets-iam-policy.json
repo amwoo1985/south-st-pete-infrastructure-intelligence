@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SouthStPeteBudgetsManagement",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ViewBudget",
+        "budgets:CreateBudget",
+        "budgets:ModifyBudget",
+        "budgets:CreateNotification",
+        "budgets:CreateSubscriber"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

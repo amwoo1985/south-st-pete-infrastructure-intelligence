@@ -95,6 +95,27 @@
 
 ---
 
+## 6. Accountability Tracker — Parallel Track (non-load-bearing)
+
+A council-vote-ledger feature ("how many housing votes did X cast against," backed by real per-member roll-call data rather than an LLM summarization guess) surfaced mid-build, outside this plan's original scope. DECISIONS #54 confirmed Legistar exposes structured per-commissioner roll-call HTML; #55 extended that recon to city/county/state; #56-#57 authorized and built the first real crawler (St. Petersburg City Council vote/agenda data, `app/crawlers/stpete_council_votes.py`).
+
+**This section exists to formalize where that work sits relative to the Day 1-9 schedule — see DECISIONS #63.**
+
+- **Not on the critical path.** It does not block, and is not blocked by, the load-bearing Day 1-5 path (Tier-1/1.5 crawlers → chunking → embeddings/pgvector → retrieval/grounding), and does not factor into the Day 5 go/no-go checkpoint in Section 2.
+- **Below Section 3's fallback-cut order.** It's net-new scope beyond what Section 3 already ranks, not competing with any item already listed there — Section 3's cut order is unchanged by this feature's existence.
+- **Two contingent touchpoints, not scheduled commitments:**
+  - The ledger DB schema (`council_members`/`agenda_items`/`council_votes`) and insert pipeline could ride along Day 4's schema/index/insert-pipeline work — same kind of Postgres schema design as the pgvector task, different tables — but only opportunistically, after pgvector itself is solid that day. If Day 4's load-bearing work isn't done, this doesn't happen Day 4.
+  - A read-only query endpoint for the ledger fits naturally into Day 7's FastAPI phase once the schema exists, on the same opportunistic basis — only after `/query`, `/health`, and `/documents/upload` are working.
+- **Remaining backlog — no day assignment, each gated by its own future DECISIONS build-authorization entry before any code:**
+  - The `council_members`/`agenda_items`/`council_votes` DB schema + insert pipeline (unblocked now that one real crawler's output shape exists to design against, per DECISIONS #57; still not yet authorized).
+  - A crawler for Pinellas Sheriff's disciplinary-case PDFs (recon'd in DECISIONS #55 Thread 4 as the strongest of four other county offices checked).
+  - A crawler for FL Legislature votes (blocked on deciding how to handle the district-renumbering trap and the bill-by-bill walk, per DECISIONS #55 Thread 3).
+  - A crawler for FL PSC orders (blocked on isolating Duke Energy Florida's specific dockets from the full static-archive order dump, per DECISIONS #55 Thread 2).
+  - A read-only query surface once schema exists.
+- **Pointer:** DECISIONS #54-#57, #63 carry the full recon/authorization/build history for this track; nothing here duplicates that record.
+
+---
+
 ### Anchor Files
 
 - `DECISIONS.md` — #9-#12 written; provider choices land here Day 1
