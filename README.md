@@ -14,8 +14,8 @@ A grant-application tool for the Florida coalition, administered by the Florida 
 
 | Phase | What | Why it matters |
 |---|---|---|
-| B | Logins with MFA (AWS Cognito), organizations, roles, time-limited partner access | Nothing sensitive goes in until this exists |
-| C | Each organization's documents walled off from the others, including in search and AI answers | Partners only see their own material by default |
+| B | Logins with MFA (AWS Cognito), organizations, roles, time-limited partner access | Who you are and what you're assigned to |
+| C | Each organization's documents walled off from the others, including in search and AI answers | Nothing sensitive goes in until this exists |
 | D | Opportunity tracker, master-spreadsheet import/export, applications (LOI linked to full), word/character limits | The core grant workflow |
 | E | Field-by-field drafting with citations, review chain, comments, version history, audit log | Writer never approves their own work; every change is recorded |
 | F | Readiness checks, Word/package export, deadline reminders | A person submits; the app prepares |
@@ -24,7 +24,7 @@ A grant-application tool for the Florida coalition, administered by the Florida 
 
 **Why won't it just write from what it "knows"?** Because a grant application with an invented metric or a partner commitment nobody agreed to is worse than a blank field. It can get an organization disqualified or damage a funder relationship. The system only states facts it can point back to in an authorized document, and it flags gaps instead of filling them.
 
-**Who can reach this?** The deployed instance has a public address. Uploads need a shared key (DECISIONS #144), but `/query` and `/sources` are open, and there are no individual logins yet. **Don't upload real partner documents (EINs, financials, banking details, anything non-public) to a deployed instance until Phase B ships.**
+**Who can reach this?** The deployed instance has a public address. Uploads need a shared key (DECISIONS #144), but `/query` and `/sources` are open, and there are no individual logins yet. **Don't upload real partner documents (EINs, financials, banking details, anything non-public) to a deployed instance until Phase C ships.** Phase B adds logins, but only Phase C stops one organization's users from searching another's documents.
 
 **Does it submit applications or send email?** No, and the first version never will. It prepares packages for a designated person to submit.
 
