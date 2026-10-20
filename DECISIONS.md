@@ -1837,3 +1837,6 @@ Live AWS state, read-only check on 2026-10-19 (for item 4):
 - ACTIVE taskdef families: api, worker, granicus-worker, migrate, ssp-smoke-test. ECR repos: `south-st-pete-app`, `south-st-pete-app-migrate`. Leftover IAM roles: `south-st-pete-scheduler-execution-role`, `south-st-pete-granicus-scheduler-execution-role`.
 - Not verifiable: classic EventBridge rules (`events:ListRules` is denied to the deploy user).
 - Teardown is prepared as a stepwise script kept outside the repo. Amber runs each step; each execution gets recorded here.
+
+#159 teardown log:
+- Step 1, 2026-10-19: Amber ran `aws scheduler delete-schedule --name south-st-pete-weekly-recrawl`. Verified afterward (read-only): `list-schedules` returns `[]`, and `get-schedule` returns ResourceNotFoundException. The weekly civic recrawl is stopped. Undo: re-register from `infra/register_recrawl_schedule.sh` at 217596f.
