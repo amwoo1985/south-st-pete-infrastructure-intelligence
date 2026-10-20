@@ -1818,3 +1818,22 @@ Dropped, not moved: the scraping-etiquette rules (respect robots.txt, rate-limit
 
 Why: Amber's direction. The grounded-RAG core (threshold, dedup, cite-or-refuse) is exactly what questionnaire 5.4 asks of the drafting engine, so keeping it beats starting over. Everything source-specific was dead weight for the new product.
 Date: 2026-10-19
+
+## #159 — Amber's sign-off on the four open design questions from #158's plan
+
+Decision: Amber answered on 2026-10-19:
+1. **No-invented-claims rule (questionnaire 5.4): approved as designed.** Every number, date, dollar amount and partner name in a draft must appear in a cited source chunk (a deterministic check, not model judgment). Anything unsupported is flagged, never filled in. Her reasoning: Erica reviews every application before submission and supplies correct information for whatever is flagged, so flags are the right hand-off to a human, and the human review step is load-bearing in this design.
+2. **Purge the old civic-records corpus from RDS: approved.** It covers `chunks` rows from the St. Petersburg sources and test uploads, plus the orphaned `crawl_runs` and `granicus_transcription_jobs` tables. It runs as an ordered migration through the B0 migration runner, ahead of C2's `chunks.org_id NOT NULL`. It is not run ad hoc, because RDS is reachable only from inside AWS and the old one-off migrate task was removed in #158.
+3. **Email notifications from a system address: approved.** The app sends assignment and deadline notifications from a dedicated system sender (provider TBD in its own entry; SES fits the AWS stack). Per questionnaire 6.6, notifications carry the assignment, the due date and a link, never sensitive attachments or credentials. This does not authorize sending from, or reading, FLFPC's own mailbox (questionnaire 3.3 stays out of scope).
+4. **AWS cleanup: approved to inspect.** Read the live state, then prepare exact teardown commands for Amber to run. Each teardown still gets recorded when it's executed.
+
+Why: these were the blocking open questions in the B–F design plan (§10 items 1, 3, 7, 8).
+Date: 2026-10-19
+
+Live AWS state, read-only check on 2026-10-19 (for item 4):
+- `south-st-pete-weekly-recrawl` (EventBridge Scheduler, default group) is **ENABLED**: `cron(0 6 ? * SAT *)` UTC, running `south-st-pete-migrate:12` with `python scripts/run_live_recrawl.py run` through `south-st-pete-scheduler-execution-role`. It is still crawling and embedding civic data weekly. It must be removed **before** the purge, or the next run repopulates the corpus.
+- `south-st-pete-api` is running 1/1 on taskdef `:4`, image `south-st-pete-app:32fa151` (pre-#158 code).
+- `south-st-pete-worker` is ACTIVE at 0/0 (per #157).
+- ACTIVE taskdef families: api, worker, granicus-worker, migrate, ssp-smoke-test. ECR repos: `south-st-pete-app`, `south-st-pete-app-migrate`. Leftover IAM roles: `south-st-pete-scheduler-execution-role`, `south-st-pete-granicus-scheduler-execution-role`.
+- Not verifiable: classic EventBridge rules (`events:ListRules` is denied to the deploy user).
+- Teardown is prepared as a stepwise script kept outside the repo. Amber runs each step; each execution gets recorded here.
