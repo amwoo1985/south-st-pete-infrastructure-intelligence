@@ -27,7 +27,7 @@
         "cognito-idp:DescribeUserPoolClient",
         "cognito-idp:AdminGetUser"
       ],
-      "Resource": "arn:aws:cognito-idp:us-east-1:*:userpool/*"
+      "Resource": "arn:aws:cognito-idp:us-east-1:516887747774:userpool/us-east-1_0KsvGD5bp"
     }
   ]
 }

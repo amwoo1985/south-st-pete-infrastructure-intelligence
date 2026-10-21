@@ -13,7 +13,7 @@ For whoever is running this next, with no one to ask. Do the steps in order. Ste
 - `.env` holds `RDS_HOST`, `RDS_MASTER_USERNAME`, `RDS_MASTER_PASSWORD`, `APP_RUNTIME_DB_PASSWORD`, `OPENAI_API_KEY` and the three `COGNITO_*` values (`infra/register_cognito.sh` prints the Cognito ones).
 - The git working tree is clean and on the commit you intend to ship (the build script refuses a dirty tree).
 - Docker is running. `aws` and a working `python` are on the PATH (in Git Bash on Windows the repo's `.venv` python is fine).
-- Two identities. **Deploy commands** run as the deploy user: `export AWS_PROFILE=south-st-pete`. It has no IAM rights. **Step 0** runs as the admin login the admin IAM user (console only, MFA, no access keys, DECISIONS #163): open AWS CloudShell from that console session, or use the console. Do not use `AWS_PROFILE=south-st-pete` for step 0.
+- Two identities. **Deploy commands** run as the deploy user: `export AWS_PROFILE=south-st-pete`. It has no IAM rights. **Step 0** runs as the admin IAM user (console only, MFA, no access keys, DECISIONS #163): open AWS CloudShell from that console session, or use the console. Do not use `AWS_PROFILE=south-st-pete` for step 0.
 - On Linux or macOS the scripts are not all executable: write `bash infra/<script>.sh` as shown.
 - Record the starting state (read-only): `bash infra/run_migration.sh status` and `bash infra/run_migration.sh report`. Until step 2 these run on the old migrate task definition, so `status` shows 0001-0003 applied and says nothing about 0004-0006.
 

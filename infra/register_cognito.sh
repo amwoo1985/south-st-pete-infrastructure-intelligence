@@ -33,7 +33,8 @@
 #
 # Permissions: the deploy user has no Cognito access by default. An admin
 # attaches infra/cognito-iam-policy.json to it once, or runs this with an
-# admin profile.
+# admin profile. The policy's pool-level actions are scoped to the one live
+# pool's ARN; creating a replacement pool means updating that ARN first.
 #
 # Usage:
 #   AWS_PROFILE=south-st-pete bash infra/register_cognito.sh
