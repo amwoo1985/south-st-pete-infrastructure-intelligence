@@ -5,6 +5,7 @@
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "arn:aws:iam::__ACCOUNT_ID__:role/south-st-pete-ecs-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::__ACCOUNT_ID__:role/south-st-pete-api-task-role",
   "containerDefinitions": [
     {
       "name": "south-st-pete-api",
@@ -19,7 +20,9 @@
         {"name": "LOCAL_DB_NAME", "value": "southstpete"},
         {"name": "LOCAL_DB_PORT", "value": "5432"},
         {"name": "OPENAI_API_KEY", "value": "__OPENAI_API_KEY__"},
-        {"name": "UPLOAD_API_KEY", "value": "__UPLOAD_API_KEY__"}
+        {"name": "COGNITO_REGION", "value": "__COGNITO_REGION__"},
+        {"name": "COGNITO_USER_POOL_ID", "value": "__COGNITO_USER_POOL_ID__"},
+        {"name": "COGNITO_APP_CLIENT_ID", "value": "__COGNITO_APP_CLIENT_ID__"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

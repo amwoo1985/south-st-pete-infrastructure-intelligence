@@ -17,12 +17,16 @@ directly so the real RAG pipeline's OpenAI calls never fire either.
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.auth.context import AuthContext, get_auth_context
+from app.auth.principal import Principal
+from app.db.connection import get_connection
 
 
 @pytest.fixture(scope="session")
@@ -45,3 +49,34 @@ def mock_openai_client(monkeypatch):
     mock_client = MagicMock()
     monkeypatch.setattr("app.api.dependencies._openai_client", mock_client)
     return mock_client
+
+
+@pytest.fixture(autouse=True)
+def _signed_in(request):
+    """Every protected route needs a signed-in user (DECISIONS #169). These
+    tests are about what the routes do, so they replace the sign-in check
+    with a fixed person on a real connection. tests/api/test_auth_required.py
+    (opted out here) exercises the real check with real tokens."""
+    if request.module.__name__.rsplit(".", 1)[-1] in ("test_auth_required", "test_admin", "test_invitations"):
+        yield
+        return
+
+    def fake_context():
+        conn = get_connection()
+        try:
+            yield AuthContext(
+                principal=Principal(
+                    user_id=uuid.uuid4(),
+                    cognito_sub="sub-test-signed-in",
+                    email="signed-in@example.org",
+                    display_name=None,
+                    is_platform_admin=False,
+                ),
+                conn=conn,
+            )
+        finally:
+            conn.close()
+
+    app.dependency_overrides[get_auth_context] = fake_context
+    yield
+    app.dependency_overrides.pop(get_auth_context, None)
