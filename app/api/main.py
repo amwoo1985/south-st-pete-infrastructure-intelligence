@@ -21,7 +21,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, documents, health, query, sources
+from app.api import admin, documents, health, invitations, query, sources
 from app.db.connection import get_connection
 from app.db.migrate import assert_schema_current
 
@@ -59,6 +59,7 @@ app.include_router(health.router)
 app.include_router(sources.router)
 app.include_router(documents.router)
 app.include_router(admin.router)
+app.include_router(invitations.router)
 
 # Static UI (DECISIONS #105) — plain HTML/JS/CSS served by this same app,
 # no separate container. Mounted at "/" LAST, after every API router

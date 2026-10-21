@@ -70,14 +70,18 @@ def world(runtime_password, cognito_env, make_token, monkeypatch):  # noqa: F811
 
     for conn in opened:
         conn.close()
-    ids = [p["id"] for p in people.values()]
     with admin.cursor() as cur:
+        # Everyone this test made, including accounts created by invitations
+        # (their emails carry the same tag).
+        cur.execute("SELECT user_id FROM users WHERE email LIKE %s", (f"%-{tag}@example.org",))
+        ids = [r[0] for r in cur.fetchall()]
         cur.execute("SELECT org_id FROM organizations WHERE created_by = ANY(%s)", (ids,))
         orgs = [r[0] for r in cur.fetchall()]
         cur.execute(
             "DELETE FROM audit_log WHERE org_id = ANY(%s) OR actor_user_id = ANY(%s) OR object_id = ANY(%s)",
             (orgs, ids, [str(i) for i in ids]),
         )
+        cur.execute("DELETE FROM org_invitations WHERE org_id = ANY(%s) OR invited_user_id = ANY(%s)", (orgs, ids))
         cur.execute("DELETE FROM support_access_grants WHERE org_id = ANY(%s)", (orgs,))
         cur.execute("DELETE FROM org_memberships WHERE org_id = ANY(%s)", (orgs,))
         cur.execute("DELETE FROM organizations WHERE org_id = ANY(%s)", (orgs,))

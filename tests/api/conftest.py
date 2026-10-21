@@ -57,7 +57,7 @@ def _signed_in(request):
     tests are about what the routes do, so they replace the sign-in check
     with a fixed person on a real connection. tests/api/test_auth_required.py
     (opted out here) exercises the real check with real tokens."""
-    if request.module.__name__.rsplit(".", 1)[-1] in ("test_auth_required", "test_admin"):
+    if request.module.__name__.rsplit(".", 1)[-1] in ("test_auth_required", "test_admin", "test_invitations"):
         yield
         return
 
