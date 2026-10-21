@@ -1,7 +1,8 @@
 """Who is making this request (DECISIONS #164).
 
-``get_principal`` is the FastAPI dependency every protected route will use
-(wired onto routes in layer B4). It:
+``get_principal`` is the FastAPI dependency for a route that needs to know
+who is calling but touches no tenant data; every route that reads or writes
+the database uses app.auth.context.get_auth_context instead. It:
 
 1. reads ``Authorization: Bearer <access token>``,
 2. verifies the token with Cognito's keys (app/auth/tokens.py), before

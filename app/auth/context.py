@@ -1,7 +1,8 @@
 """One connection per authenticated request, carrying the caller's identity
 into the database (DECISIONS #166).
 
-``get_auth_context`` is the dependency protected routes use (wired in B4):
+``get_auth_context`` is the dependency every protected route uses (all API
+routes except /health, DECISIONS #169):
 
 1. verifies the bearer token, before any database work (no connection is
    opened for anonymous or junk requests),
@@ -25,12 +26,18 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import psycopg
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer
 
 from app.auth.principal import Principal, _unavailable, load_active_principal, verified_claims
 from app.db.connection import get_connection
 
 logger = logging.getLogger("auth")
+
+# Declared only so /docs shows an Authorize button that sends the bearer
+# token; the token itself is read and verified from the request by
+# verified_claims(), not from this scheme (auto_error=False: never rejects).
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -47,7 +54,7 @@ def set_acting_user(conn: psycopg.Connection, principal: Principal) -> None:
     conn.commit()
 
 
-def get_auth_context(request: Request) -> Iterator[AuthContext]:
+def get_auth_context(request: Request, _scheme: object = Depends(_bearer_scheme)) -> Iterator[AuthContext]:
     claims = verified_claims(request)
     try:
         conn = get_connection()

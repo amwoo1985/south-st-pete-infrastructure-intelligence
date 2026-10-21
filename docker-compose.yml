@@ -52,16 +52,9 @@ services:
       LOCAL_DB_NAME: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
       LOCAL_DB_PORT: 5432
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
-      # DECISIONS #144 — gates POST /documents/upload only (app/api/documents.py).
-      # Deliberately NOT `:?required` like the vars above: an unset value must
-      # not take down /health, /query, /sources/{doc_id}, which stay open. The
-      # app itself fails closed (503) on every upload request when this is
-      # unset — see app/api/documents.py's module docstring.
-      UPLOAD_API_KEY: ${UPLOAD_API_KEY:-}
     ports:
-      # Localhost only, matching `db`'s own binding above. POST
-      # /documents/upload now requires the X-Upload-Api-Key header
-      # (DECISIONS #144) — the other three routes remain open by design.
+      # Localhost only, matching `db`'s own binding above. Every route
+      # except /health needs a signed-in user (DECISIONS #169).
       - "127.0.0.1:8000:8000"
 
 volumes:

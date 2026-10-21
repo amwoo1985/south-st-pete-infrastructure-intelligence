@@ -61,7 +61,8 @@ import logging
 import openai
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.dependencies import get_db_conn, get_openai_client
+from app.api.dependencies import get_openai_client
+from app.auth.context import AuthContext, get_auth_context
 from app.api.schemas import Citation, QueryRequest, QueryResponse
 from app.embeddings.client import EmbeddingInputTooLargeError, EmbeddingValidationError
 from app.rag.generation import GenerationValidationError, UngroundedAnswerError
@@ -88,7 +89,7 @@ _CITATION_COLUMNS = ("chunk_id", "doc_type", "section_label", "source_url", "pub
 @router.post("/query", response_model=QueryResponse)
 def query(
     req: QueryRequest,
-    conn=Depends(get_db_conn),
+    ctx: AuthContext = Depends(get_auth_context),
     client: openai.OpenAI = Depends(get_openai_client),
 ) -> QueryResponse:
     """Sync route (no `async def`): every call in the chain below —
@@ -97,6 +98,7 @@ def query(
     worker thread automatically, which is the correct behavior here
     rather than wrapping already-sync calls in async machinery that buys
     nothing."""
+    conn = ctx.conn
     try:
         result = answer_query(conn, client, req.question)
     except UngroundedAnswerError as exc:

@@ -14,8 +14,11 @@ another's request.
 from __future__ import annotations
 
 import openai
+from dotenv import load_dotenv
 
-from app.db.connection import get_connection
+# The OpenAI client below reads OPENAI_API_KEY when constructed at import time,
+# so .env must already be loaded (safe to repeat; never overrides real env vars).
+load_dotenv()
 
 # Module-level singleton, constructed once at import time — safe to share
 # across requests (the OpenAI SDK client holds no per-request state; every
@@ -31,21 +34,3 @@ _openai_client = openai.OpenAI()
 
 def get_openai_client() -> openai.OpenAI:
     return _openai_client
-
-
-def get_db_conn():
-    """FastAPI dependency: opens one psycopg connection per request via
-    app.db.connection.get_connection(), and closes it when the request
-    finishes (success or error) via this generator's `finally` — see
-    module docstring for why per-request open/close over a pool.
-
-    Autocommit is OFF (app/db/connection.py's default) — a route that
-    writes (app/api/documents.py's upload pre-check/upsert) must call
-    conn.commit() itself; closing an uncommitted connection rolls back,
-    which is the safe default for the read-only routes (/query,
-    /sources/{doc_id}, which never call commit() at all)."""
-    conn = get_connection()
-    try:
-        yield conn
-    finally:
-        conn.close()

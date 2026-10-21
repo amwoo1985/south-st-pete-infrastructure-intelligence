@@ -18,8 +18,7 @@
         {"name": "LOCAL_DB_PASSWORD", "value": "__APP_RUNTIME_DB_PASSWORD__"},
         {"name": "LOCAL_DB_NAME", "value": "southstpete"},
         {"name": "LOCAL_DB_PORT", "value": "5432"},
-        {"name": "OPENAI_API_KEY", "value": "__OPENAI_API_KEY__"},
-        {"name": "UPLOAD_API_KEY", "value": "__UPLOAD_API_KEY__"}
+        {"name": "OPENAI_API_KEY", "value": "__OPENAI_API_KEY__"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
