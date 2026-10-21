@@ -137,8 +137,8 @@ def test_successful_query_returns_full_citation_attribution(client, monkeypatch)
     from app.rag.retrieval import RetrievalResult, RetrievedChunk
 
     # A real, committed row — the query endpoint's citation lookup
-    # (app/api/query.py's _lookup_citations) runs on its OWN connection
-    # (a fresh one per request, via get_db_conn), which under Postgres's
+    # (app/api/query.py's _lookup_citations) runs on the request's own
+    # connection (from get_auth_context), which under Postgres's
     # default READ COMMITTED isolation would never see an uncommitted
     # insert made over a different connection. Committed here, deleted
     # (and committed again) in the finally block below so this test

@@ -10,7 +10,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.dependencies import get_db_conn
+from app.auth.context import AuthContext, get_auth_context
 from app.api.schemas import SourceRecordResponse
 from app.db.schema import CHUNK_COLUMNS
 
@@ -23,7 +23,8 @@ _SELECT_SQL = f"SELECT {', '.join(_SOURCE_COLUMNS)} FROM chunks WHERE chunk_id =
 
 
 @router.get("/sources/{doc_id}", response_model=SourceRecordResponse)
-def get_source(doc_id: str, conn=Depends(get_db_conn)) -> SourceRecordResponse:
+def get_source(doc_id: str, ctx: AuthContext = Depends(get_auth_context)) -> SourceRecordResponse:
+    conn = ctx.conn
     # api-review pre-commit finding (DECISIONS #114): this query previously
     # had no exception handling at all, unlike every other route in this
     # layer — a DB error fell through to Starlette's default handler,

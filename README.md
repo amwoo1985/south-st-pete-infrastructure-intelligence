@@ -6,7 +6,7 @@ A grant-application tool for the Florida coalition, administered by the Florida 
 
 ## What works today
 
-1. Upload a PDF, DOCX, or TXT (requires the shared upload key, see "Who can reach this").
+1. Upload a PDF, DOCX, or TXT (requires a signed-in account, see "Who can reach this").
 2. Ask a plain-language question. The system finds the most relevant passages, answers **only** from them, and cites each one.
 3. If the documents don't contain the answer, it says so instead of guessing.
 
@@ -24,7 +24,7 @@ A grant-application tool for the Florida coalition, administered by the Florida 
 
 **Why won't it just write from what it "knows"?** Because a grant application with an invented metric or a partner commitment nobody agreed to is worse than a blank field. It can get an organization disqualified or damage a funder relationship. The system only states facts it can point back to in an authorized document, and it flags gaps instead of filling them.
 
-**Who can reach this?** The deployed instance has a public address. Uploads need a shared key (DECISIONS #144), but `/query` and `/sources` are open, and there are no individual logins yet. **Don't upload real partner documents (EINs, financials, banking details, anything non-public) to a deployed instance until Phase C ships.** Phase B adds logins, but only Phase C stops one organization's users from searching another's documents.
+**Who can reach this?** The deployed instance has a public address. Every API route except `/health` needs a signed-in user (DECISIONS #169), but browser sign-in isn't built yet, so the deployed instance can't upload or query for now. **Don't upload real partner documents (EINs, financials, banking details, anything non-public) to a deployed instance until Phase C ships.** Phase B adds logins, but only Phase C stops one organization's users from searching another's documents.
 
 **Does it submit applications or send email?** No, and the first version never will. It prepares packages for a designated person to submit.
 

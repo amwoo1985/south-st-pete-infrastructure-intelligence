@@ -27,35 +27,6 @@ def probe_app():
     return TestClient(app)
 
 
-@pytest.fixture
-def user_row():
-    """Inserts a committed users row for the test and deletes it afterwards."""
-    created = []
-
-    def _make(sub: str, *, disabled: bool = False, admin: bool = False):
-        conn = as_system_job(get_connection())
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO users (cognito_sub, email, is_platform_admin, disabled_at) "
-                    "VALUES (%s, %s, %s, CASE WHEN %s THEN now() END)",
-                    (sub, f"{sub}@example.org", admin, disabled),
-                )
-            conn.commit()
-        finally:
-            conn.close()
-        created.append(sub)
-
-    yield _make
-    conn = as_system_job(get_connection())
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM users WHERE cognito_sub = ANY(%s)", (created,))
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def _sub() -> str:
     return "sub-test-" + uuid.uuid4().hex[:12]
 
