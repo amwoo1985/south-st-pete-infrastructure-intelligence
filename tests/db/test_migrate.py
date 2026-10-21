@@ -121,6 +121,7 @@ def test_every_table_grants_runtime_role_row_access(mconn):
         "organizations": {"SELECT", "INSERT"},
         "org_memberships": {"SELECT", "INSERT"},
         "support_access_grants": {"SELECT", "INSERT"},
+        "org_invitations": {"SELECT"},
         "audit_log": set(),
     }
     with mconn.cursor() as cur:

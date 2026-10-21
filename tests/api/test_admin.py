@@ -92,11 +92,23 @@ def _make_org(client, headers, name="Test Org"):
     return resp.json()["org_id"]
 
 
-def _org_with_admin(client, people, headers):
-    org = _make_org(client, headers)
-    resp = client.post(f"/orgs/{org}/memberships", json={"email": people["ed"]["email"], "role": "org_admin"},
-                       headers=headers("pa"))
-    assert resp.status_code == 201, resp.text
+def _add_member(world, org, name, role):
+    """Seats someone the way the bootstrap command does (the privileged,
+    reasoned path); the invitation endpoints arrive in a later layer."""
+    people, _, admin = world
+    with admin.cursor() as cur:
+        cur.execute("SELECT set_config('app.user_id', %s, false)", (str(people["pa"]["id"]),))
+        cur.execute("INSERT INTO org_memberships (org_id, user_id, role) VALUES (%s, %s, %s) RETURNING membership_id",
+                    (org, people[name]["id"], role))
+        membership = cur.fetchone()[0]
+        cur.execute("SELECT set_config('app.user_id', '', false)")
+    admin.commit()
+    return str(membership)
+
+
+def _org_with_admin(client, world):
+    org = _make_org(client, world[1])
+    _add_member(world, org, "ed", "org_admin")
     return org
 
 
@@ -130,7 +142,7 @@ def test_blank_org_name_is_422(client, world):
 
 def test_listing_orgs_shows_own_orgs_to_members_and_all_to_platform_admins(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     mine = [o["org_id"] for o in client.get("/orgs", headers=headers("ed")).json()]
     assert mine == [org]
     assert client.get("/orgs", headers=headers("outsider")).json() == []
@@ -140,36 +152,14 @@ def test_listing_orgs_shows_own_orgs_to_members_and_all_to_platform_admins(clien
 # --- memberships ------------------------------------------------------------
 
 
-def test_platform_admin_can_only_appoint_the_first_org_admin(client, world):
-    people, headers, _ = world
-    org = _make_org(client, headers)
-    resp = client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                       headers=headers("pa"))
-    assert resp.status_code == 403
-    first = client.post(f"/orgs/{org}/memberships", json={"email": people["ed"]["email"], "role": "org_admin"},
-                        headers=headers("pa"))
-    assert first.status_code == 201
-    second = client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "org_admin"},
-                         headers=headers("pa"))
-    assert second.status_code == 403
-
-
-def test_org_admin_adds_lists_and_revokes_members(client, world):
+def test_org_admin_lists_and_revokes_members(client, world):
     people, headers, admin = world
-    org = _org_with_admin(client, people, headers)
-    added = client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                        headers=headers("ed"))
-    assert added.status_code == 201
-    membership_id = added.json()["id"]
+    org = _org_with_admin(client, world)
+    membership_id = _add_member(world, org, "staff", "contributor")
 
     members = client.get(f"/orgs/{org}/memberships", headers=headers("ed")).json()
     assert {(m["email"], m["role"]) for m in members} == {
         (people["ed"]["email"], "org_admin"), (people["staff"]["email"], "contributor")}
-
-    with admin.cursor() as cur:
-        cur.execute("SELECT actor_user_id FROM audit_log WHERE action = 'membership.grant' AND object_id = %s",
-                    (membership_id,))
-        assert cur.fetchone()[0] == people["ed"]["id"]
 
     assert client.delete(f"/orgs/{org}/memberships/{membership_id}", headers=headers("ed")).status_code == 204
     remaining = client.get(f"/orgs/{org}/memberships", headers=headers("ed")).json()
@@ -179,9 +169,8 @@ def test_org_admin_adds_lists_and_revokes_members(client, world):
 
 def test_member_lists_are_for_admins_and_point_people_only(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                headers=headers("ed"))
+    org = _org_with_admin(client, world)
+    _add_member(world, org, "staff", "contributor")
     assert client.get(f"/orgs/{org}/memberships", headers=headers("staff")).status_code == 403
     assert client.get(f"/orgs/{org}/memberships", headers=headers("outsider")).status_code == 403
     assert client.get(f"/orgs/{org}/memberships", headers=headers("pa")).status_code == 403
@@ -191,55 +180,13 @@ def test_member_lists_are_for_admins_and_point_people_only(client, world):
         f"/orgs/{org}/memberships", headers=headers("outsider")).json()
 
 
-def test_non_admin_cannot_grant_and_nobody_grants_themselves(client, world):
-    people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                headers=headers("ed"))
-    denied = client.post(f"/orgs/{org}/memberships", json={"email": people["outsider"]["email"], "role": "contributor"},
-                         headers=headers("staff"))
-    assert denied.status_code == 403
-    self_grant = client.post(f"/orgs/{org}/memberships", json={"email": people["ed"]["email"], "role": "budget_owner"},
-                             headers=headers("ed"))
-    assert self_grant.status_code == 403
-    assert "yourself" in self_grant.json()["detail"] or "own" in self_grant.json()["detail"]
-
-
-def test_unknown_email_and_platform_admin_targets_are_refused(client, world):
-    people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    unknown = client.post(f"/orgs/{org}/memberships", json={"email": "nobody-here@example.org", "role": "contributor"},
-                          headers=headers("ed"))
-    assert unknown.status_code == 422 and "can't be added" in unknown.json()["detail"]
-    vendor = client.post(f"/orgs/{org}/memberships", json={"email": people["pa"]["email"], "role": "contributor"},
-                         headers=headers("ed"))
-    assert vendor.status_code == 403
-    assert "support grants" in vendor.json()["detail"]
-
-
 def test_last_active_org_admin_cannot_leave(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     mine = client.get(f"/orgs/{org}/memberships", headers=headers("ed")).json()[0]["membership_id"]
     resp = client.delete(f"/orgs/{org}/memberships/{mine}", headers=headers("ed"))
     assert resp.status_code == 409
     assert "at least one active admin" in resp.json()["detail"]
-
-
-def test_bad_role_or_email_is_422(client, world):
-    people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    for body in ({"email": people["staff"]["email"], "role": "emperor"}, {"email": "not-an-email", "role": "contributor"}):
-        assert client.post(f"/orgs/{org}/memberships", json=body, headers=headers("ed")).status_code == 422
-
-
-def test_email_is_matched_ignoring_case_and_spaces(client, world):
-    people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    resp = client.post(f"/orgs/{org}/memberships",
-                       json={"email": "  " + people["staff"]["email"].upper() + " ", "role": "contributor"},
-                       headers=headers("ed"))
-    assert resp.status_code == 201
 
 
 # --- support access ---------------------------------------------------------
@@ -247,7 +194,7 @@ def test_email_is_matched_ignoring_case_and_spaces(client, world):
 
 def test_org_admin_grants_lists_and_revokes_support_access(client, world):
     people, headers, admin = world
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     body = {"support_user_email": people["pa"]["email"], "reason": "Help with the import", "expires_at": _expires(3)}
     created = client.post(f"/orgs/{org}/support-grants", json=body, headers=headers("ed"))
     assert created.status_code == 201, created.text
@@ -268,9 +215,8 @@ def test_org_admin_grants_lists_and_revokes_support_access(client, world):
 
 def test_support_access_rules_are_the_databases(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                headers=headers("ed"))
+    org = _org_with_admin(client, world)
+    _add_member(world, org, "staff", "contributor")
     base = {"support_user_email": people["pa"]["email"], "reason": "Help"}
     # Only the customer's org admin consents; the vendor can't consent for them.
     assert client.post(f"/orgs/{org}/support-grants", json={**base, "expires_at": _expires(3)},
@@ -293,14 +239,14 @@ def test_support_access_rules_are_the_databases(client, world):
 
 def test_support_grants_list_is_for_org_admins_only(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     assert client.get(f"/orgs/{org}/support-grants", headers=headers("outsider")).status_code == 403
     assert client.get(f"/orgs/{org}/support-grants", headers=headers("pa")).status_code == 403
 
 
 def test_naive_expiry_time_is_422(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     body = {"support_user_email": people["pa"]["email"], "reason": "Help", "expires_at": "2030-01-01T00:00:00"}
     assert client.post(f"/orgs/{org}/support-grants", json=body, headers=headers("ed")).status_code == 422
 
@@ -310,15 +256,11 @@ def test_naive_expiry_time_is_422(client, world):
 
 def test_strangers_learn_nothing_from_the_write_routes(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     fake_org = str(uuid.uuid4())
     answers = set()
     for target_org in (org, fake_org):
         for email in (people["staff"]["email"], people["pa"]["email"], "nobody-here@example.org"):
-            resp = client.post(f"/orgs/{target_org}/memberships", json={"email": email, "role": "contributor"},
-                               headers=headers("outsider"))
-            assert resp.status_code == 403
-            answers.add(resp.json()["detail"])
             grant = client.post(f"/orgs/{target_org}/support-grants",
                                 json={"support_user_email": email, "reason": "x", "expires_at": _expires(3)},
                                 headers=headers("outsider"))
@@ -327,42 +269,19 @@ def test_strangers_learn_nothing_from_the_write_routes(client, world):
     assert len(answers) == 1
 
 
-def test_duplicate_membership_is_409(client, world):
-    people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    body = {"email": people["staff"]["email"], "role": "contributor"}
-    assert client.post(f"/orgs/{org}/memberships", json=body, headers=headers("ed")).status_code == 201
-    dup = client.post(f"/orgs/{org}/memberships", json=body, headers=headers("ed"))
-    assert dup.status_code == 409 and dup.json()["detail"] == "That already exists."
-
-
 def test_revoking_twice_is_refused(client, world):
     people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    mid = client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                      headers=headers("ed")).json()["id"]
+    org = _org_with_admin(client, world)
+    mid = _add_member(world, org, "staff", "contributor")
     assert client.delete(f"/orgs/{org}/memberships/{mid}", headers=headers("ed")).status_code == 204
     again = client.delete(f"/orgs/{org}/memberships/{mid}", headers=headers("ed"))
     assert again.status_code == 409
 
 
-def test_point_person_grants_non_admin_roles_only(client, world):
-    people, headers, _ = world
-    org = _org_with_admin(client, people, headers)
-    client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "point_person"},
-                headers=headers("ed"))
-    ok = client.post(f"/orgs/{org}/memberships", json={"email": people["outsider"]["email"], "role": "contributor"},
-                     headers=headers("staff"))
-    assert ok.status_code == 201
-    other = client.post(f"/orgs/{org}/memberships", json={"email": people["pa"]["email"], "role": "org_admin"},
-                        headers=headers("staff"))
-    assert other.status_code == 403
-
-
 def test_nul_bytes_are_422_not_500(client, world):
     people, headers, _ = world
     assert client.post("/orgs", json={"legal_name": "Bad\u0000Name"}, headers=headers("pa")).status_code == 422
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     body = {"support_user_email": people["pa"]["email"], "reason": "x\u0000y", "expires_at": _expires(3)}
     assert client.post(f"/orgs/{org}/support-grants", json=body, headers=headers("ed")).status_code == 422
 
@@ -376,10 +295,10 @@ def test_database_error_text_is_never_shown(client, world, monkeypatch):
     def boom(cur):
         raise pgerr.InsufficientPrivilege('permission denied for table users_secret')
 
-    org = _org_with_admin(client, people, headers)
+    org = _org_with_admin(client, world)
     monkeypatch.setattr(admin_module, "_active_user_id", lambda cur, email: (_ for _ in ()).throw(boom(cur)))
-    resp = client.post(f"/orgs/{org}/memberships", json={"email": people["staff"]["email"], "role": "contributor"},
-                       headers=headers("ed"))
+    body = {"support_user_email": people["pa"]["email"], "reason": "x", "expires_at": _expires(3)}
+    resp = client.post(f"/orgs/{org}/support-grants", json=body, headers=headers("ed"))
     assert resp.status_code == 403
     assert "users_secret" not in resp.text
 
@@ -389,7 +308,7 @@ def test_database_error_text_is_never_shown(client, world, monkeypatch):
 
 @pytest.mark.parametrize("method,path", [
     ("GET", "/orgs"), ("POST", "/orgs"),
-    ("GET", f"/orgs/{uuid.uuid4()}/memberships"), ("POST", f"/orgs/{uuid.uuid4()}/memberships"),
+    ("GET", f"/orgs/{uuid.uuid4()}/memberships"),
     ("DELETE", f"/orgs/{uuid.uuid4()}/memberships/{uuid.uuid4()}"),
     ("GET", f"/orgs/{uuid.uuid4()}/support-grants"), ("POST", f"/orgs/{uuid.uuid4()}/support-grants"),
     ("DELETE", f"/orgs/{uuid.uuid4()}/support-grants/{uuid.uuid4()}"),

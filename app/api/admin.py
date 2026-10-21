@@ -53,13 +53,13 @@ logger = logging.getLogger("api.admin")
 
 router = APIRouter(tags=["organizations"])
 
-ROLES = ("org_admin", "point_person", "contributor", "budget_owner", "authorized_approver")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 ORG_COLUMNS = ("org_id", "legal_name", "display_name", "status", "created_at")
 MEMBER_COLUMNS = ("membership_id", "user_id", "email", "display_name", "role", "granted_at")
 SUPPORT_COLUMNS = ("grant_id", "support_user_id", "email", "reason", "starts_at", "expires_at", "revoked_at")
 
+ROLES = ("org_admin", "point_person", "contributor", "budget_owner", "authorized_approver")
 _NOT_ALLOWED = "You aren't allowed to do that."
 _CANT_ADD = "That person can't be added. Check the email address and that they have an active account."
 
@@ -101,23 +101,6 @@ class OrganizationResponse(BaseModel):
     display_name: str | None
     status: str
     created_at: datetime
-
-
-class MembershipCreate(BaseModel):
-    email: str
-    role: str
-
-    @field_validator("email")
-    @classmethod
-    def _email_ok(cls, v: str) -> str:
-        return _normalize_email(v)
-
-    @field_validator("role")
-    @classmethod
-    def _known_role(cls, v: str) -> str:
-        if v not in ROLES:
-            raise ValueError("role must be one of: " + ", ".join(ROLES))
-        return v
 
 
 class MembershipResponse(BaseModel):
@@ -281,7 +264,8 @@ def create_org(body: OrganizationCreate, ctx: AuthContext = Depends(get_auth_con
     return _run(ctx, "create org", work)
 
 
-# --- memberships -----------------------------------------------------------
+# --- memberships: listing and revoking. People join through invitations
+# (DECISIONS #170/#171); there is deliberately no route that adds a member.
 
 
 @router.get("/orgs/{org_id}/memberships", response_model=list[MembershipResponse])
@@ -299,24 +283,6 @@ def list_memberships(org_id: UUID, ctx: AuthContext = Depends(get_auth_context))
         return [MembershipResponse(**dict(zip(MEMBER_COLUMNS, row))) for row in cur.fetchall()]
 
     return _run(ctx, "list memberships", work)
-
-
-@router.post("/orgs/{org_id}/memberships", response_model=CreatedId, status_code=status.HTTP_201_CREATED)
-def add_membership(org_id: UUID, body: MembershipCreate, ctx: AuthContext = Depends(get_auth_context)) -> CreatedId:
-    """Gives an existing, active person a role in the org. Who may grant which
-    role is decided by the database."""
-
-    def work(cur):
-        if not ctx.principal.is_platform_admin:  # a platform admin may appoint a first org admin
-            _require_member(cur, ctx, org_id, ["org_admin", "point_person"])
-        user_id = _active_user_id(cur, body.email)
-        cur.execute(
-            "INSERT INTO org_memberships (org_id, user_id, role) VALUES (%s, %s, %s) RETURNING membership_id",
-            (org_id, user_id, body.role),
-        )
-        return CreatedId(id=cur.fetchone()[0])
-
-    return _run(ctx, "add membership", work)
 
 
 @router.delete("/orgs/{org_id}/memberships/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
