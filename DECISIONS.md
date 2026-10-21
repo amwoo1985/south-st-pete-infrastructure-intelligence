@@ -1880,7 +1880,7 @@ Date: 2026-10-19
 
 #160/#161 production rollout log, 2026-10-19 (each step run by Amber; read-only checks by Claude):
 - Baseline (`run_migration.sh report`, before any change): `chunks` 593 (174 `granicus_transcript`), `document_uploads` 0, `crawl_runs` 13, `granicus_transcription_jobs` 4.
-- Manual RDS snapshot `south-st-pete-civic-archive-2026-10-19`: verified `available`, 100%, before `up`.
+- Manual RDS snapshot `south-st-pete-civic-archive-2026-10-19`: verified `available`, 100%, before `up`. *(Item 1 superseded by #167: this snapshot was deleted 2026-10-20. The corpus is kept in `applied-db`'s `archive` schema.)*
 - Image `south-st-pete-app:1c3a804` pushed; registered `south-st-pete-api:6` (image 1c3a804, `LOCAL_DB_USER=app_runtime`) and `south-st-pete-migrate:14`.
 - `run_migration.sh up`: applied 0001_baseline, 0002_app_runtime_grants, 0003_archive_civic_corpus, exit 0.
 - `south-st-pete-api` updated to `:6`. The service reached a steady state, the old task was stopped, and the new task logged "Application startup complete" (the schema check passed as `app_runtime`). Live `GET /health` returned `{"status":"ok","db":"ok"}`, and `/health/crawlers` returns 404 (Phase A code is live).
@@ -2034,7 +2034,12 @@ Decision (Amber, 2026-10-20):
   5. `run_migration.sh report` on the new instance: archive 593 / 0 / 13 / 4, which **matches the pre-move baseline exactly**.
 - **#163 confirmed live:** `register_app_taskdefs.sh` ran successfully without `IAMFullAccess`, so `AmazonECS_FullAccess`'s PassRole grant covers deploys.
 - Writes during the move: none. The live tables are empty and no workers run, so no data could be lost between the snapshot and the cutover.
-- **Pending:** retire the old unencrypted instance `south-st-pete-dev-db` and decide which unencrypted snapshots to keep. That's irreversible, so it waits for Amber's explicit choice.
+- **Old instance retired (Amber's explicit choice, 2026-10-20).** Amber ran the deletes as the admin IAM user (console, then CloudShell). Claude checked the result read-only after each step.
+  - Deleted: instance `south-st-pete-dev-db` and its retained automated backups (8 dailies, 2026-10-13 to 2026-10-20, as observed in a read-only listing before the delete).
+  - Deleted: the console's final snapshot `south-st-pete-dev-db-snapshot`. The console delete created it because the final-snapshot box was left checked.
+  - Deleted: the unencrypted snapshots `applied-pre-encryption-2026-10-20` and `south-st-pete-civic-archive-2026-10-19`.
+  - **This supersedes #161 item 1** ("untouchable" snapshot). The civic corpus is still kept: it's in `applied-db`'s `archive` schema (counts verified above) and in the encrypted snapshot. Lost: the only copy of the database as it was before migration 0003.
+  - Remaining RDS footprint, all encrypted: instance `applied-db` (deletion protection on), manual snapshot `applied-pre-encryption-2026-10-20-encrypted`, and `applied-db`'s automated backups. The automated backups expire after 7 days, which makes the encrypted manual snapshot the only long-lived backup. Restoring it needs the admin IAM user (KMS, item 2).
 Date: 2026-10-20
 
 ## #168 — #140 closed: the tagged key is dead, the tag is gone, and the deploy user's console login (no MFA) is disabled
