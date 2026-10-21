@@ -52,6 +52,12 @@ services:
       LOCAL_DB_NAME: ${LOCAL_DB_NAME:?LOCAL_DB_NAME must be set in .env}
       LOCAL_DB_PORT: 5432
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
+      # Sign-in settings (app/auth/tokens.py). Deliberately NOT `:?required`: if
+      # unset, /health still works and every other route answers 503 (sign-in
+      # unavailable) rather than the container refusing to start.
+      COGNITO_REGION: ${COGNITO_REGION:-}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:-}
     ports:
       # Localhost only, matching `db`'s own binding above. Every route
       # except /health needs a signed-in user (DECISIONS #169).

@@ -53,7 +53,7 @@ Every chunk carries its source, its own date where known, and when it was ingest
 docker-compose up --build
 ```
 
-Postgres + pgvector and the API (port 8000). UI at `http://localhost:8000/`. Copy `.env.example` to `.env` and fill it in first.
+Postgres + pgvector and the API (port 8000). UI at `http://localhost:8000/`. Copy `.env.example` to `.env` and fill it in first (including the three `COGNITO_*` values: without them every route except `/health` answers 503).
 
 The API never creates tables itself; it refuses to start if the database is behind. Apply migrations first (and after pulling changes that add one):
 
@@ -68,7 +68,7 @@ Tests: `pip install -r requirements.txt -r requirements-dev.txt`, start the `db`
 AWS Fargate (`api` service) + RDS. Deploy in this order:
 
 1. `infra/build_push_app_image.sh` (build and push the image)
-2. `IMAGE_TAG=<sha> infra/register_app_taskdefs.sh` (registers the `api` and `migrate` task definitions)
+2. `IMAGE_TAG=<sha> infra/register_app_taskdefs.sh` (registers the `api` and `migrate` task definitions; needs the three `COGNITO_*` values in `.env`, which `infra/register_cognito.sh` prints)
 3. `infra/run_migration.sh up` (applies schema changes as the database owner; `status` and `report` are read-only. `report` prints uploaded filenames into the CloudWatch log group `/ecs/south-st-pete-app`). If `up` fails with a lock timeout (the live api was mid-query), nothing was changed; just run it again
 4. Update the ECS `api` service to the new task definition.
 
