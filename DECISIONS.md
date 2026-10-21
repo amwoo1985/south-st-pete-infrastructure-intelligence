@@ -2036,3 +2036,14 @@ Decision (Amber, 2026-10-20):
 - Writes during the move: none. The live tables are empty and no workers run, so no data could be lost between the snapshot and the cutover.
 - **Pending:** retire the old unencrypted instance `south-st-pete-dev-db` and decide which unencrypted snapshots to keep. That's irreversible, so it waits for Amber's explicit choice.
 Date: 2026-10-20
+
+## #168 — #140 closed: the tagged key is dead, the tag is gone, and the deploy user's console login (no MFA) is disabled
+
+Decision (Amber, 2026-10-20). Console checks were done by Amber as the admin IAM user. Claude ran the read-only CLI checks. The deploy user can't read IAM (#163), so the IAM-side facts below are as Amber reported them.
+- **Tag:** `south-st-pete-infra-dev` has no tags. The credential-shaped tag from #140 is gone.
+- **Key `…F7JU`:** no longer exists. It's not on `south-st-pete-infra-dev`, which has a single access key (a different one, matching the local `south-st-pete` CLI profile; Claude compared last 4 only), and it's not on any other IAM user. Root has no access keys, and root MFA is on. So no IAM user in this account holds `…F7JU`. Whether it was ever this account's key is unknown, and nobody searched CloudTrail for API calls made with it. There's nothing left to rotate.
+- **Console login:** `south-st-pete-infra-dev` had console sign-in **enabled without MFA**. The tag's password-shaped value may have been that password. **Disabled.** The deploy user needs only its access key.
+- **Use check:** CloudTrail event history (`us-east-1`, about 90 days back to 2026-07-22) shows no `ConsoleLogin` by `south-st-pete-infra-dev`; the only sign-ins were root and the admin IAM user. Limits: only one region was checked, and the window starts about a month before the tag was found (2026-08-24), so it says nothing about earlier use. Strong evidence, not proof.
+- **Remaining risk:** the password-shaped value is still in git history (#141, commit `ee2fad3`), which is on `origin/master` of a **public** GitHub repo. Disabling this user's console login makes it useless here. If that value was used as a password anywhere else, change it there. Re-enabling console access for this user requires a new password plus MFA.
+- **Prevention:** `.claude/rules/secrets.md` gains a placement rule: never store credentials in tags, names or descriptions, and report credential-shaped metadata by key ID's last 4 characters, with values shown as `[redacted]`.
+Date: 2026-10-20
