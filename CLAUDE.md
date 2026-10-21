@@ -24,12 +24,12 @@ Every non-trivial design decision gets a numbered `DECISIONS.md` entry before or
 - PostgreSQL + pgvector (embeddings/retrieval)
 - Docker + docker-compose (local), AWS Fargate/ECS + RDS (deploy)
 - Embedding/LLM provider: **OpenAI** (`text-embedding-3-small`, `gpt-4o-mini`) — DECISIONS #13. The API does not train on submitted data by default; questionnaire 8.5 still requires checking each funder's and partner's terms before their documents are processed.
-- Auth: **AWS Cognito** with MFA (authenticator app / passkeys) — DECISIONS #158. Not built yet (Phase B).
+- Auth: **AWS Cognito** with MFA (authenticator app / passkeys) — DECISIONS #158. API-side token checks, the `users` table, tenancy, invitations and the bootstrap tool are built (Phase B, #164-#175). Browser sign-in (B5) is waiting on HTTPS (#162).
 
 ## Phases (DECISIONS #158)
 
 - **A** — Strip the civic-records tool down to its reusable core. ← done in #158
-- **B** — Cognito auth + MFA, organizations, users, roles, time-limited per-application access.
+- **B** — Cognito auth + MFA, organizations, users, roles, invitations, consented support access, audit. ← built and tested (#164-#175), not yet deployed; B5 browser login is blocked on HTTPS. Time-limited per-application assignments moved to D (#166).
 - **C** — Per-organization document vault; retrieval isolated per org (no cross-org leaks through search, exports, or AI answers).
 - **D** — Opportunities, master-spreadsheet import/export, applications (LOI ↔ full), fields with word/char limits.
 - **E** — Field-by-field cited drafting, review/approval chain, comments, version history, audit log.
@@ -53,4 +53,4 @@ The detailed design plan is kept locally, not committed.
 ## Ongoing-operation notes
 
 - Fargate/RDS run 24/7 at real (if small) cost; OpenAI usage scales with drafting volume (working assumption: 5–10 applications/month, questionnaire 3.1).
-- The live RDS still holds the old civic-records corpus and the orphaned `crawl_runs` / `granicus_transcription_jobs` tables, and the deployed API image is still the pre-#158 build. See DECISIONS #158 for the AWS cleanup that's waiting on explicit sign-off.
+- The live RDS still holds the old civic-records corpus and the orphaned `crawl_runs` / `granicus_transcription_jobs` tables, and the deployed API still runs the Phase A build (image `1c3a804`, task definition `:7`, #161/#167), whose schema stops at migration 0003. The Phase B release is not deployed; follow `infra/DEPLOY_RUNBOOK.md`, and note that once migration 0004 or later is applied the `:7` build can no longer start (it refuses a database newer than itself).
