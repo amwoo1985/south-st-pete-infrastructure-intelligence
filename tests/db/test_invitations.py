@@ -437,20 +437,52 @@ def test_caller_cap_boundary(world):
     _denied(act_as("a"), INVITE, (org, _email(admin, people["c"]), "point_person"), match="sent too many invitations")
 
 
-def test_precheck_applies_the_same_authorization_and_caps_without_writing(world):
+def test_begin_applies_the_same_authorization_and_caps_without_writing(world):
     people, act_as, _, admin = world
     org = _org_with_admin(world)
-    PRE = "SELECT invite_precheck(%s, %s)"
-    _run(act_as("a"), PRE, (org, "contributor"))
-    _denied(act_as("b"), PRE, (org, "contributor"), match="not allowed to invite people")
-    _denied(act_as("a"), PRE, (uuid.uuid4(), "contributor"), match="not allowed to invite people")
-    _denied(act_as("a"), PRE, (org, "emperor"), match="unknown role")
+    BEGIN = "SELECT invite_begin(%s, %s)"
+    _run(act_as("a"), BEGIN, (org, "contributor"))
+    _denied(act_as("b"), BEGIN, (org, "contributor"), match="not allowed to invite people")
+    _denied(act_as("a"), BEGIN, (uuid.uuid4(), "contributor"), match="not allowed to invite people")
+    _denied(act_as("a"), BEGIN, (org, "emperor"), match="unknown role")
     _fill_closed_invitations(admin, org, people["a"], people["b"], 10)
-    _denied(act_as("a"), PRE, (org, "contributor"), match="sent too many invitations")
+    _denied(act_as("a"), BEGIN, (org, "contributor"), match="sent too many invitations")
     with admin.cursor() as cur:
         cur.execute("SELECT count(*) FROM org_invitations WHERE org_id = %s", (org,))
-        assert cur.fetchone()[0] == 10  # the precheck wrote nothing
-    admin.rollback()
+        assert cur.fetchone()[0] == 10  # beginning wrote nothing
+
+
+def test_begin_holds_the_senders_and_the_orgs_locks_until_the_transaction_ends(world):
+    people, act_as, _, admin = world
+    org = _org_with_admin(world)
+    _grant(world, "a", org, "c", "point_person")
+    first = act_as("a")
+    with first.cursor() as cur:
+        cur.execute("SELECT invite_begin(%s, 'contributor')", (org,))  # transaction left open
+    # The same sender, and a different sender in the same org, both wait.
+    for who in ("a", "c"):
+        other = act_as(who)
+        with other.cursor() as cur:
+            cur.execute("SET statement_timeout = 400")
+            with pytest.raises(psycopg.errors.QueryCanceled):
+                cur.execute("SELECT invite_begin(%s, 'contributor')", (org,))
+        other.rollback()
+    first.rollback()
+    _run(act_as("c"), "SELECT invite_begin(%s, 'contributor')", (org,))  # free again
+
+
+def test_waiting_for_the_locks_is_bounded(world):
+    people, act_as, _, _ = world
+    org = _org_with_admin(world)
+    first = act_as("a")
+    with first.cursor() as cur:
+        cur.execute("SELECT invite_begin(%s, 'contributor')", (org,))
+    second = act_as("a")
+    with second.cursor() as cur:
+        with pytest.raises(psycopg.errors.LockNotAvailable):
+            cur.execute("SELECT invite_begin(%s, 'contributor')", (org,))
+    second.rollback()
+    first.rollback()
 
 
 def test_global_cap_protects_the_shared_email_quota(world):

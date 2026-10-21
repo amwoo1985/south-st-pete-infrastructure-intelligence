@@ -1,0 +1,14 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InviteEmployeesToTheOneUserPool",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:ListUsers"
+      ],
+      "Resource": "arn:aws:cognito-idp:us-east-1:__ACCOUNT_ID__:userpool/__USER_POOL_ID__"
+    }
+  ]
+}

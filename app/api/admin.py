@@ -22,7 +22,8 @@ functions carries a sentence written for people (recognized because it comes
 with a PL/pgSQL context; Postgres's own messages, such as "permission denied
 for table x", have none) and is passed along as the ``detail``:
 insufficient_privilege -> 403, check_violation -> 409, invalid input -> 422.
-Everything else gets a fixed sentence: table CHECK and unique constraints
+The invitation functions' custom codes map to 429 (cap reached) and 404 (no
+such invitation, whatever the reason). Everything else gets a fixed sentence: table CHECK and unique constraints
 (409), bad characters (422), serialization conflicts (409), connection
 trouble (503), and anything unexpected (logged, generic 500).
 
@@ -172,6 +173,13 @@ def _people_sentence(exc: psycopg.Error) -> str | None:
 def _db_error(exc: psycopg.Error, what: str) -> HTTPException:
     """Turns a database refusal into an HTTP answer (see module docstring)."""
     sentence = _people_sentence(exc)
+    # Custom codes raised by the invitation functions (migration 0006).
+    if exc.sqlstate == "P0A02":
+        return HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, sentence or "Too many invitations today. Try again later.")
+    if exc.sqlstate == "P0A03":
+        return HTTPException(status.HTTP_404_NOT_FOUND, "No such invitation.")
+    if isinstance(exc, pgerr.LockNotAvailable):
+        return HTTPException(status.HTTP_409_CONFLICT, "Another change to this organization is in progress. Please try again.")
     if isinstance(exc, pgerr.InsufficientPrivilege):
         return HTTPException(status.HTTP_403_FORBIDDEN, sentence or _NOT_ALLOWED)
     if isinstance(exc, pgerr.UniqueViolation):

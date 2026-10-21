@@ -188,12 +188,26 @@ BEGIN
     END IF;
 END $$;
 
--- Read-only: lets the API confirm the caller may invite (and is under the
--- caps) BEFORE it touches Cognito. Writes nothing, takes no lock.
-CREATE FUNCTION invite_precheck(p_org uuid, p_role text) RETURNS void
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+-- Step one of inviting from the API: confirm the caller may invite and is
+-- under the caps, THEN take the per-sender and per-organization locks, and
+-- check again under them. The API keeps the transaction open (the locks last
+-- until it ends) while it talks to Cognito and then calls invite_user, so
+-- concurrent requests can't all pass the caps and each create a Cognito
+-- account. Authorization comes before any lock, so a stranger can't queue
+-- behind or time another tenant's organization row.
+CREATE FUNCTION invite_begin(p_org uuid, p_role text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    me uuid := app_current_user_id();
 BEGIN
-    PERFORM app_invite_gate(app_current_user_id(), p_org, p_role);
+    PERFORM app_require_read_committed();
+    PERFORM app_invite_gate(me, p_org, p_role);
+    -- Waiting for another invitation (or anything else holding this org) is
+    -- bounded: the request fails with lock_not_available instead of queueing.
+    PERFORM set_config('lock_timeout', '3000', true);
+    PERFORM pg_advisory_xact_lock(hashtext('invite:' || me::text));
+    PERFORM 1 FROM organizations WHERE org_id = p_org FOR UPDATE;
+    PERFORM app_invite_gate(me, p_org, p_role);
 END $$;
 
 -- The pending-invitation id named by app.accepting_invitation, or NULL.
@@ -217,7 +231,7 @@ END $$;
 -- account id was supplied: it writes nothing, so it is a free existence probe
 -- for anyone able to call this function directly. The API never relies on
 -- it: it always looks up or creates the Cognito account first (after
--- invite_precheck) and passes the account id.
+-- invite_begin) and passes the account id.
 -- Returns the invitation, the normalized email, and whether this call
 -- created or renewed it (the API then re-sends the Cognito invitation if the
 -- person has never signed in).
@@ -508,10 +522,10 @@ GRANT SELECT ON org_invitations TO app_runtime;
 REVOKE EXECUTE ON FUNCTION
     trg_org_invitations_guard(), trg_org_invitations_audit(), trg_org_memberships_accept(),
     app_can_invite(uuid, uuid, text), app_accepting_invitation(), app_invite_gate(uuid, uuid, text),
-    invite_precheck(uuid, text), invite_user(uuid, text, text, text, text), accept_invitation(uuid),
+    invite_begin(uuid, text), invite_user(uuid, text, text, text, text), accept_invitation(uuid),
     decline_invitation(uuid), revoke_invitation(uuid)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-    invite_precheck(uuid, text), invite_user(uuid, text, text, text, text), accept_invitation(uuid),
+    invite_begin(uuid, text), invite_user(uuid, text, text, text, text), accept_invitation(uuid),
     decline_invitation(uuid), revoke_invitation(uuid)
 TO app_runtime;
