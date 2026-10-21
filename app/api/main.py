@@ -1,5 +1,6 @@
-"""FastAPI application entrypoint. Wires together the 4 endpoints
-(POST /query, GET /health, GET /sources/{doc_id}, POST /documents/upload) over the already-built RAG
+"""FastAPI application entrypoint. Wires together the endpoints
+(POST /query, GET /health, GET /sources/{doc_id}, POST /documents/upload, and the
+organization/membership/support-grant routes in app/api/admin.py) over the already-built RAG
 pipeline (app/rag/pipeline.py) and embeddings pipeline
 (app/embeddings/pipeline.py).
 
@@ -20,7 +21,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import documents, health, query, sources
+from app.api import admin, documents, health, query, sources
 from app.db.connection import get_connection
 from app.db.migrate import assert_schema_current
 
@@ -57,6 +58,7 @@ app.include_router(query.router)
 app.include_router(health.router)
 app.include_router(sources.router)
 app.include_router(documents.router)
+app.include_router(admin.router)
 
 # Static UI (DECISIONS #105) — plain HTML/JS/CSS served by this same app,
 # no separate container. Mounted at "/" LAST, after every API router
