@@ -2020,3 +2020,19 @@ Decision: migration `0005_tenancy_and_audit` implements #165's data-model rules,
 
 Verified: 225 tests pass. 38 new ones in `tests/db/test_tenancy.py` run through a real `app_runtime` login acting as specific people and cover every rule above, including forged `granted_by`/`created_by`, the platform-admin master-key attempt, last-admin protection, support-grant consent/backdating/closed-org cases, direct audit reads and writes denied, audit rows with the real actor, users changes needing a reason, and identity surviving a rollback.
 Date: 2026-10-20
+
+## #167 — Database moved to an encrypted instance (`applied-db`); product named "Applied"; HTTPS will use a subdomain
+
+Decision (Amber, 2026-10-20):
+- **The product is named "Applied."** New infrastructure uses the name (`applied-db`). Existing `south-st-pete-*` resources keep their names (#165: renaming live resources is risk without benefit).
+- **Domain:** Applied will use a **subdomain** of Amber's existing domain (one DNS record when HTTPS is set up), so the existing site is untouched. The domain itself isn't named here.
+- **Encryption at rest (#165 gap closed).** Done by Amber as the admin IAM user (CloudShell, then the console), with read-only checks by Claude after each step:
+  1. Snapshot `applied-pre-encryption-2026-10-20` of `south-st-pete-dev-db` (unencrypted).
+  2. Encrypted copy `applied-pre-encryption-2026-10-20-encrypted` (KMS `aws/rds`), verified `Encrypted=true`. This needed the admin IAM user, since the deploy user has no KMS rights.
+  3. Restored as **`applied-db`**: `StorageEncrypted=true`, **`DeletionProtection=true`**, 7-day backups, and the same class, subnet group, security group, parameter group, AZ and storage type as before.
+  4. Cutover: `.env` `RDS_HOST` set to the new endpoint; registered `south-st-pete-api:7` / `south-st-pete-migrate:15` (both confirmed pointing at `applied-db`, image `1c3a804`); `run_migration.sh status` showed 0001–0003 applied on the new instance; the api service was updated to `:7`, reached a steady state, and the live `/health` returned `{"status":"ok","db":"ok"}`.
+  5. `run_migration.sh report` on the new instance: archive 593 / 0 / 13 / 4, which **matches the pre-move baseline exactly**.
+- **#163 confirmed live:** `register_app_taskdefs.sh` ran successfully without `IAMFullAccess`, so `AmazonECS_FullAccess`'s PassRole grant covers deploys.
+- Writes during the move: none. The live tables are empty and no workers run, so no data could be lost between the snapshot and the cutover.
+- **Pending:** retire the old unencrypted instance `south-st-pete-dev-db` and decide which unencrypted snapshots to keep. That's irreversible, so it waits for Amber's explicit choice.
+Date: 2026-10-20
