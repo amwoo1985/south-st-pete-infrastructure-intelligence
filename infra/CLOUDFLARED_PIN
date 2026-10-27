@@ -1,0 +1,6 @@
+# The one place the cloudflared version is pinned. Read by
+# infra/mirror_cloudflared.sh and infra/fill_taskdef.py. To upgrade: pick a
+# release tag, read its image-list digest from Docker Hub, change both lines,
+# re-run the mirror script, re-run the tests. Never "latest".
+CLOUDFLARED_VERSION=2026.10.4
+CLOUDFLARED_DIGEST=sha256:c6c7ae1d5dfdcb094ad344ed68ccffc26635c9c6be80965664c33baf064b0515

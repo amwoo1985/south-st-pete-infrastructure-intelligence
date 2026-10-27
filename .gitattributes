@@ -3,3 +3,4 @@
 # - bash scripts fail with CRLF line endings
 *.sql text eol=lf
 *.sh text eol=lf
+infra/CLOUDFLARED_PIN text eol=lf

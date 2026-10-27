@@ -17,7 +17,10 @@
 # .env present with RDS_HOST/RDS_MASTER_USERNAME/RDS_MASTER_PASSWORD/
 # APP_RUNTIME_DB_PASSWORD/OPENAI_API_KEY, plus COGNITO_REGION/COGNITO_USER_POOL_ID/
 # COGNITO_APP_CLIENT_ID (public identifiers, not secrets; infra/register_cognito.sh
-# prints them), and the docker image already pushed to ECR under the given tag.
+# prints them), CLOUDFLARE_TUNNEL_SECRET_ARN (unless TUNNEL_SIDECAR=off), and
+# the docker image already pushed to ECR under the given tag. The cloudflared
+# image is the digest in infra/CLOUDFLARED_PIN, mirrored into ECR beforehand by
+# infra/mirror_cloudflared.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,63 +39,48 @@ IMAGE="${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/south-st-pete-app:${IMAGE_T
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-for role in api migrate; do
+# tunnel-check is the pre-migration rehearsal task (cloudflared only, DECISIONS
+# #178); it is skipped when the tunnel is deliberately off.
+# Same rule as fill_taskdef.py: only exactly "on"/"off" (or unset) is accepted.
+ROLES="api migrate"
+case "${TUNNEL_SIDECAR-on}" in
+  on) ROLES="api migrate tunnel-check" ;;
+  off) ;;
+  *) echo "TUNNEL_SIDECAR must be 'on' or 'off' (or unset for on)" >&2; exit 1 ;;
+esac
+
+# The pinned cloudflared image must already be in ECR (infra/mirror_cloudflared.sh):
+# otherwise the definition registers fine and the task fails at start, and
+# because cloudflared is essential that takes the whole api task with it.
+if [ "${TUNNEL_SIDECAR-on}" = "on" ]; then
+  PIN_DIGEST="$(sed -n 's/^CLOUDFLARED_DIGEST=//p' infra/CLOUDFLARED_PIN | tr -d '\r')"
+  printf '%s' "$PIN_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$' \
+    || { echo "infra/CLOUDFLARED_PIN: bad CLOUDFLARED_DIGEST" >&2; exit 1; }
+  if ! ECR_ERR="$(aws ecr describe-images --repository-name south-st-pete-app \
+      --image-ids "imageDigest=${PIN_DIGEST}" --query 'imageDetails[0].imageDigest' \
+      --output text 2>&1 >/dev/null)"; then
+    echo "cloudflared ${PIN_DIGEST} not confirmed in ECR (run: bash infra/mirror_cloudflared.sh): ${ECR_ERR}" >&2
+    exit 1
+  fi
+fi
+
+for role in ${ROLES}; do
   OUT_FILE="${TMP_DIR}/${role}-taskdef.json"
-  # .env is parsed by python-dotenv (handles quoting and CRLF line endings),
-  # not `source`d by the shell, and placeholders are replaced as literal JSON
-  # string values, never via sed, so a secret containing & # \ " or a CR
-  # can't be mangled or break the JSON (deploy-review finding on the old sed
-  # path). Secrets travel via the .env file only, never argv. Every required
-  # value is checked for presence and rejected if it's still a .env.example
-  # placeholder (changeme*).
-  python - "infra/${role}-taskdef.template.json" "${IMAGE}" "${ACCOUNT_ID}" > "${OUT_FILE}" <<'PY'
-import json, sys
-from dotenv import dotenv_values
+  # All filling and checking lives in infra/fill_taskdef.py (tested in
+  # tests/infra). .env is parsed by python-dotenv (quoting, CRLF), placeholders
+  # are replaced as literal JSON string values, never via sed, so a secret
+  # containing & # \ " or a CR can't break the JSON. Secrets travel via the
+  # .env file only, never argv. The script refuses before registering anything if a
+  # required value is missing or a .env.example placeholder, and refuses if
+  # .env still holds CLOUDFLARE_TUNNEL_TOKEN (the token lives only in Secrets
+  # Manager; the ARN, which is not secret, is CLOUDFLARE_TUNNEL_SECRET_ARN).
+  python infra/fill_taskdef.py "${role}" "${IMAGE}" "${ACCOUNT_ID}" > "${OUT_FILE}"
+done
 
-template_path, image, account_id = sys.argv[1:4]
-env = {k: (v or "").strip() for k, v in dotenv_values(".env", interpolate=False).items()}
-required = ["RDS_HOST", "RDS_MASTER_USERNAME", "RDS_MASTER_PASSWORD", "APP_RUNTIME_DB_PASSWORD", "OPENAI_API_KEY", "COGNITO_REGION", "COGNITO_USER_POOL_ID", "COGNITO_APP_CLIENT_ID"]
-# One shared check for both roles: the migrate task ignores the COGNITO_* values,
-# but one deploy flow registers both, so a missing value stops it before any
-# aws call (nothing half-registered).
-bad = [k for k in required if not env.get(k) or env[k].lower().startswith(("changeme", "sk-changeme"))]
-if bad:
-    sys.exit("Refusing to register: missing or still-placeholder in .env: " + ", ".join(bad))
-if not env["COGNITO_USER_POOL_ID"].startswith(env["COGNITO_REGION"] + "_"):
-    sys.exit("Refusing to register: COGNITO_USER_POOL_ID should start with COGNITO_REGION + '_'")
-values = {
-    "__IMAGE__": image,
-    "__ACCOUNT_ID__": account_id,
-    "__DB_HOST__": env["RDS_HOST"],
-    "__RDS_MASTER_USERNAME__": env["RDS_MASTER_USERNAME"],
-    "__RDS_MASTER_PASSWORD__": env["RDS_MASTER_PASSWORD"],
-    "__APP_RUNTIME_DB_PASSWORD__": env["APP_RUNTIME_DB_PASSWORD"],
-    "__OPENAI_API_KEY__": env["OPENAI_API_KEY"],
-    "__COGNITO_REGION__": env["COGNITO_REGION"],
-    "__COGNITO_USER_POOL_ID__": env["COGNITO_USER_POOL_ID"],
-    "__COGNITO_APP_CLIENT_ID__": env["COGNITO_APP_CLIENT_ID"],
-}
-
-
-def fill(node):
-    if isinstance(node, dict):
-        return {k: fill(v) for k, v in node.items()}
-    if isinstance(node, list):
-        return [fill(v) for v in node]
-    if isinstance(node, str):
-        for placeholder, value in values.items():
-            node = node.replace(placeholder, value)
-        return node
-    return node
-
-
-with open(template_path, encoding="utf-8") as f:
-    filled = fill(json.load(f))
-leftover = [p for p in values if p in json.dumps(filled)]
-if leftover:
-    sys.exit("Unfilled placeholders: " + ", ".join(leftover))
-json.dump(filled, sys.stdout)
-PY
+# Fill everything first, register second: a refusal for any role stops the
+# run before any aws register call, so nothing is half-registered.
+for role in ${ROLES}; do
+  OUT_FILE="${TMP_DIR}/${role}-taskdef.json"
   # aws.exe (Windows-native, e.g. Git Bash on Windows) can't resolve a POSIX
   # /tmp/... path in a --cli-input-json file:// URI. cygpath -m (drive letter
   # + forward slashes, e.g. C:/Users/...) converts it into a well-formed
