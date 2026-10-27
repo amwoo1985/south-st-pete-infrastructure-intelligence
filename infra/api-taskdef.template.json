@@ -33,6 +33,31 @@
           "awslogs-create-group": "true"
         }
       }
+    },
+    {
+      "name": "cloudflared",
+      "image": "__CLOUDFLARED_IMAGE__",
+      "essential": true,
+      "command": ["tunnel", "--metrics", "127.0.0.1:20241", "run"],
+      "secrets": [{"name": "TUNNEL_TOKEN", "valueFrom": "__TUNNEL_TOKEN_SECRET_ARN__"}],
+      "dependsOn": [{"containerName": "south-st-pete-api", "condition": "START"}],
+      "memoryReservation": 64,
+      "healthCheck": {
+        "command": ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/south-st-pete-app",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "cloudflared",
+          "awslogs-create-group": "true"
+        }
+      }
     }
   ]
 }
