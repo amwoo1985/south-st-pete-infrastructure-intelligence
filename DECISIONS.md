@@ -2187,3 +2187,17 @@ Still unverified: whether cloudflared ever logs the token (a manual check of the
 
 Open: moving the DB password, OpenAI key and other plain env values into Secrets Manager, as a follow-up release once this deploy is stable (Amber, 2026-10-27).
 Date: 2026-10-27
+
+## #179 — Pricing working assumption: $100/month per coalition plus $50/month per member org (not settled)
+
+Working assumption (Amber, 2026-10-27), not a settled price:
+- A coalition pays **$100/month base plus $50/month per member org**. That's $350 for 5 orgs and $600 for 10. Flat fees, never a percentage of awards. Grant-professional ethics codes are believed to discourage percentage fees; that's Amber's 2026-10-20 business notes, from memory, and needs checking before prices are published.
+- **Open questions before quoting:**
+  1. What the coalition base buys, e.g. the opt-in roll-up dashboard, a coalition admin, a shared public-opportunity feed.
+  2. The price for an org outside any coalition.
+  3. (New framing in this entry) Whether Amber's hands-on help with the monthly reports (a done-with-you "concierge" service) is included, or sold as a higher tier above software-only.
+  4. Whether the coalition pays for all members or each org pays its own.
+  5. Annual invoicing aligned to members' fiscal years.
+- **Built today:** `organizations.billing_account_id` (nullable, no FK; #166) lets one payer cover several orgs. **Not built:** billing accounts, a coalition-as-payer entity, invoicing or payments. Until a few coalitions are paying, invoices are sent by hand outside the app (Amber's 2026-10-20 business notes: validate demand with a paid concierge version before building billing).
+- **Cost basis (AWS Cost Explorer, read 2026-10-27):** September $143.31, inflated by the old worker, which was scaled to zero in #157; October 1–26 $61.85. The steady state is about $60–70/month, of which about $26/month is an "AWS Business Support+" plan (to review; it may be unneeded). OpenAI is billed separately, and Cloudflare is free. Software cost per added org is small, so Amber's time is the main cost.
+Date: 2026-10-27
