@@ -112,7 +112,18 @@ def test_every_table_grants_runtime_role_row_access(mconn):
     """Catches a future migration whose table the API can't use (default
     privileges cover tables created by the migrating role; anything narrower
     must be an explicit, listed exception)."""
-    expected_exceptions = {"schema_migrations": {"SELECT"}}
+    expected_exceptions = {
+        "schema_migrations": {"SELECT"},
+        "users": {"SELECT"},
+        # 0005: table-level rights only; revocation/rename go through
+        # column-level UPDATE grants, and audit_log is written only by
+        # SECURITY DEFINER functions (DECISIONS #166).
+        "organizations": {"SELECT", "INSERT"},
+        "org_memberships": {"SELECT", "INSERT"},
+        "support_access_grants": {"SELECT", "INSERT"},
+        "org_invitations": {"SELECT"},
+        "audit_log": set(),
+    }
     with mconn.cursor() as cur:
         cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
         tables = [row[0] for row in cur.fetchall()]
@@ -217,7 +228,8 @@ def test_archive_migration_moves_every_row_and_loses_none(scratch_db_env):
             crawl_before = _rows_as_text(cur, "public.crawl_runs")
         conn.commit()
 
-        assert migrate.up(conn, all_migrations) == ["0003_archive_civic_corpus"]
+        through_archive = [m for m in all_migrations if m.version <= "0003_archive_civic_corpus"]
+        assert migrate.up(conn, through_archive) == ["0003_archive_civic_corpus"]
 
         with conn.cursor() as cur:
             # Every row, every column (vector and prod-only column included),
@@ -243,3 +255,52 @@ def test_archive_migration_moves_every_row_and_loses_none(scratch_db_env):
         conn.rollback()
     finally:
         conn.close()
+
+
+def test_runtime_role_cannot_create_promote_or_reenable_users(runtime):
+    for statement in (
+        "INSERT INTO users (cognito_sub, email) VALUES ('sub-escalate', 'x@example.org')",
+        "UPDATE users SET is_platform_admin = true",
+        "UPDATE users SET disabled_at = NULL",
+        "DELETE FROM users",
+    ):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            with runtime.cursor() as cur:
+                cur.execute(statement)
+        runtime.rollback()
+    with runtime.cursor() as cur:
+        cur.execute("SELECT count(*) FROM users")
+    runtime.rollback()
+
+
+def test_users_email_is_unique_case_insensitively(mconn):
+    from tests.conftest import as_system_job
+
+    as_system_job(mconn)
+    with mconn.cursor() as cur:
+        cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-a-dup', 'erica@example.org')")
+        with pytest.raises(psycopg.errors.CheckViolation):
+            cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-b-dup', 'Erica@Example.org')")
+    mconn.rollback()
+    with mconn.cursor() as cur:
+        cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-a-dup', 'erica@example.org')")
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            cur.execute("INSERT INTO users (cognito_sub, email) VALUES ('sub-b-dup', 'erica@example.org')")
+    mconn.rollback()
+
+
+def test_privileged_allowlist_has_migration_role_and_not_runtime(mconn):
+    with mconn.cursor() as cur:
+        cur.execute(
+            "SELECT r.rolname FROM pg_auth_members am "
+            "JOIN pg_roles g ON g.oid = am.roleid JOIN pg_roles r ON r.oid = am.member "
+            "WHERE g.rolname = 'app_privileged'"
+        )
+        members = {row[0] for row in cur.fetchall()}
+        cur.execute("SELECT current_user")
+        me = cur.fetchone()[0]
+        cur.execute("SELECT pg_has_role('app_runtime', 'app_privileged', 'MEMBER')")
+        runtime_member = cur.fetchone()[0]
+    mconn.rollback()
+    assert me in members
+    assert "app_runtime" not in members and runtime_member is False

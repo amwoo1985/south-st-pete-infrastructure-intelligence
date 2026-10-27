@@ -43,43 +43,18 @@ file_hash before its read, serializing concurrent requests for the same
 hash; `embed_and_insert_chunk` takes the equivalent per-chunk_id lock for
 the same reason at the chunk level.
 
-Auth (DECISIONS #144, closes the disclosed "no auth yet" gap named in
-CLAUDE.md/README): a single static shared-secret header,
-`X-Upload-Api-Key`, checked by `_require_upload_api_key()` below and
-wired ONLY onto this route via `dependencies=[Depends(...)]` — /query,
-/health, /sources/{doc_id} are explicitly out of scope for this change
-and stay open, per the orchestrator's directive. Chosen over a
-session/login system because there is no user/session concept anywhere
-else in this codebase and this is a solo-operator tool (occasionally a
-handful of coalition members), not a multi-tenant product — a rotatable
-shared secret is the simplest mechanism a non-engineer successor can
-actually operate: generate a new random string, put it in `.env`
-(`UPLOAD_API_KEY`), restart the api container, hand the value to whoever
-needs to upload. No login flow, no password reset, no session store to
-explain or maintain.
-
-Fail-CLOSED on a missing OR still-default key, deliberately breaking from
-`.claude/rules/deploy.md`'s general "empty/unset value disables a
-feature" convention: that convention is written for optional features
-(e.g. this project's own SNS cost-alert wiring), where "off" is a safe
-default. For an access-control gate, "unset means open" is the textbook
-insecure default and would silently recreate the exact gap this closes.
-An unset (or still-`"changeme"`, the literal value `.env.example` ships —
-api-review pre-commit finding, this round: that value is public, it's
-committed to the repo, so it can never actually protect anything)
-`UPLOAD_API_KEY` makes `_require_upload_api_key()` reject every request
-with 503 (a server-misconfiguration signal, not a 401 — the caller didn't
-do anything wrong) and logs an ERROR each time, so the failure mode is
-loud, not a silent open door. This deviation is scoped to this ONE
-security-relevant var; every other env-driven toggle in this codebase
-keeps the unset-means-off convention unchanged.
+Auth (DECISIONS #169, replacing #144's shared upload key): the route requires
+a signed-in user via app.auth.context.get_auth_context, like every API
+route except /health. Until Phase C adds per-organization document scoping,
+any signed-in user's upload lands in the one shared corpus (no real partner
+documents on a deployed instance until then; CLAUDE.md).
 
 Known, disclosed non-improvement (api-review pre-commit finding, this
-round): this auth gate does NOT reduce the route's pre-existing request-
+round): sign-in does NOT reduce the route's pre-existing request-
 body-buffering exposure. Starlette parses the full multipart body before
 FastAPI resolves ANY dependency, authenticated or not — an unauthenticated
 caller can still force this process to buffer an arbitrarily large upload
-before ever reaching `_require_upload_api_key()` and getting rejected.
+before ever reaching `get_auth_context()` and getting rejected.
 Already disclosed below (`MAX_UPLOAD_BYTES`'s comment) as deploy-infra's
 open proxy-level-limit item; this change doesn't touch that gap either
 way, and nothing here should be read as claiming otherwise.
@@ -88,13 +63,10 @@ way, and nothing here should be read as claiming otherwise.
 from __future__ import annotations
 
 import hashlib
-import hmac
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-import psycopg
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -105,84 +77,17 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from fastapi.security import APIKeyHeader
 
-from app.api.dependencies import get_db_conn, get_openai_client
+from app.api.dependencies import get_openai_client
 from app.api.schemas import DocumentUploadResponse
 from app.chunking.uploaded_document import chunk_uploaded_document
+from app.auth.context import AuthContext, get_auth_context
 from app.db.connection import get_connection
 from app.embeddings.pipeline import embed_and_insert_chunks
 
 logger = logging.getLogger("api.documents")
 
 router = APIRouter()
-
-# --- Auth: POST /documents/upload only (see module docstring) ---------
-
-UPLOAD_API_KEY_ENV_VAR = "UPLOAD_API_KEY"
-# The literal placeholder .env.example ships (api-review pre-commit
-# finding, this round): it's committed to the repo, so it's public and
-# never protects anything. Treated the same as unset — fail closed,
-# not "technically configured."
-_PLACEHOLDER_UPLOAD_API_KEY = "changeme"
-
-# `auto_error=False`: on a missing header this yields None rather than
-# FastAPI's own generic 403, so `_require_upload_api_key` below can raise
-# ONE deliberate, documented status (401 for "wrong/missing credential",
-# 503 for "server isn't configured") instead of two different implicit
-# and explicit error shapes for what a client experiences as the same
-# "I can't upload" outcome. Registering this as a `fastapi.security`
-# scheme (rather than reading the header manually) also means Swagger UI
-# at /docs shows a lock icon on this ONE route with an "Authorize" button
-# a non-engineer successor can use directly — self-documenting per this
-# project's own explainability constraint (CLAUDE.md).
-_upload_api_key_header = APIKeyHeader(name="X-Upload-Api-Key", auto_error=False)
-
-
-def _require_upload_api_key(provided: str | None = Depends(_upload_api_key_header)) -> None:
-    """FastAPI dependency, wired only onto POST /documents/upload via
-    `dependencies=[Depends(_require_upload_api_key)]` — raises, never
-    returns a value, since the route body doesn't need the key itself,
-    only the fact that it matched.
-
-    Reads `UPLOAD_API_KEY` from the environment on every call (not cached
-    at import time) so rotating the key is "edit .env, restart the api
-    process" with no code change and no stale-value risk within a single
-    process lifetime.
-    """
-    expected = os.environ.get(UPLOAD_API_KEY_ENV_VAR)
-    if not expected or expected == _PLACEHOLDER_UPLOAD_API_KEY:
-        # Fail CLOSED, not open — see module docstring. Logged at ERROR
-        # on every rejected request (not just once at startup) since this
-        # is a solo-operator tool with no separate alerting/metrics
-        # layer; the request log IS the visibility mechanism.
-        logger.error(
-            "upload rejected: %s is %s — uploads are unavailable until it "
-            "is configured with a real value (fail-closed, not fail-open)",
-            UPLOAD_API_KEY_ENV_VAR,
-            "still the .env.example placeholder"
-            if expected == _PLACEHOLDER_UPLOAD_API_KEY
-            else "not set in the environment",
-        )
-        raise HTTPException(
-            status_code=503,
-            detail="Uploads are temporarily unavailable (server is not configured for them).",
-        )
-    # Constant-time comparison (hmac.compare_digest) — a plain `==` on a
-    # shared secret leaks timing information about how many leading bytes
-    # matched; cheap to avoid, no reason not to. Compared as UTF-8 bytes,
-    # not str (api-review pre-commit finding, this round):
-    # hmac.compare_digest's str overload raises TypeError on any
-    # non-ASCII codepoint, which would otherwise turn a client sending a
-    # stray high-byte in this header into an unhandled 500 instead of the
-    # documented 401 — the bytes overload has no such restriction.
-    if not provided or not hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
-        logger.warning("upload rejected: missing or invalid X-Upload-Api-Key header")
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid X-Upload-Api-Key header.",
-        )
-
 
 # Read+hash+parse all happens in memory (see module docstring — this is a
 # one-shot job over a fully-buffered file, not a stream). 20MB is well
@@ -275,15 +180,15 @@ def _determine_kind(filename: str | None, content_type: str | None) -> str | Non
     "/documents/upload",
     response_model=DocumentUploadResponse,
     status_code=202,
-    dependencies=[Depends(_require_upload_api_key)],
 )
 async def upload_document(
     request: Request,
     background_tasks: BackgroundTasks,
     response: Response,
     file: UploadFile = File(...),
-    conn: psycopg.Connection = Depends(get_db_conn),
+    ctx: AuthContext = Depends(get_auth_context),
 ) -> DocumentUploadResponse:
+    conn = ctx.conn
     # api-review pre-commit finding (DECISIONS #114): reject an
     # honest-Content-Length oversized request BEFORE buffering it, not
     # just after. This is a real improvement over the post-read-only
@@ -414,7 +319,7 @@ def _process_upload_background(file_hash: str, raw_bytes: bytes, filename: str, 
     """Runs after the HTTP response is already sent (FastAPI
     BackgroundTasks). Owns its OWN DB connection — never reuses the
     request-scoped one from upload_document(), since that connection is
-    closed by get_db_conn()'s generator teardown once the request cycle
+    closed by get_auth_context()'s generator teardown once the request cycle
     ends, and this task's lifetime is not guaranteed to nest inside that
     teardown. The OpenAI client IS safely reused (see
     app/api/dependencies.py's module-level singleton reasoning).

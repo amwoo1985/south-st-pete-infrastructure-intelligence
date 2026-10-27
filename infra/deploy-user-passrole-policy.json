@@ -1,0 +1,12 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PassTheApiTaskRoleToEcsOnly",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:role/south-st-pete-api-task-role",
+      "Condition": { "StringEquals": { "iam:PassedToService": "ecs-tasks.amazonaws.com" } }
+    }
+  ]
+}

@@ -30,3 +30,13 @@ def _migrated_schema():
     finally:
         conn.close()
     yield
+
+
+def as_system_job(conn, reason: str = "test setup"):
+    """Marks a privileged (non-app_runtime) connection as running a named
+    system job, the only way the audit triggers accept a change with no
+    acting user (DECISIONS #166). Mirrors what the admin CLI does."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT set_config('app.system_job', %s, false)", (reason,))
+    conn.commit()
+    return conn

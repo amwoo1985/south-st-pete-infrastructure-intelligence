@@ -15,8 +15,9 @@
 #   IMAGE_TAG=<git-sha> infra/register_app_taskdefs.sh
 # Requires: AWS_PROFILE set, python with python-dotenv (the repo .venv),
 # .env present with RDS_HOST/RDS_MASTER_USERNAME/RDS_MASTER_PASSWORD/
-# APP_RUNTIME_DB_PASSWORD/OPENAI_API_KEY/UPLOAD_API_KEY, docker image already pushed to ECR under
-# the given tag.
+# APP_RUNTIME_DB_PASSWORD/OPENAI_API_KEY, plus COGNITO_REGION/COGNITO_USER_POOL_ID/
+# COGNITO_APP_CLIENT_ID (public identifiers, not secrets; infra/register_cognito.sh
+# prints them), and the docker image already pushed to ECR under the given tag.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -50,10 +51,15 @@ from dotenv import dotenv_values
 
 template_path, image, account_id = sys.argv[1:4]
 env = {k: (v or "").strip() for k, v in dotenv_values(".env", interpolate=False).items()}
-required = ["RDS_HOST", "RDS_MASTER_USERNAME", "RDS_MASTER_PASSWORD", "APP_RUNTIME_DB_PASSWORD", "OPENAI_API_KEY", "UPLOAD_API_KEY"]
+required = ["RDS_HOST", "RDS_MASTER_USERNAME", "RDS_MASTER_PASSWORD", "APP_RUNTIME_DB_PASSWORD", "OPENAI_API_KEY", "COGNITO_REGION", "COGNITO_USER_POOL_ID", "COGNITO_APP_CLIENT_ID"]
+# One shared check for both roles: the migrate task ignores the COGNITO_* values,
+# but one deploy flow registers both, so a missing value stops it before any
+# aws call (nothing half-registered).
 bad = [k for k in required if not env.get(k) or env[k].lower().startswith(("changeme", "sk-changeme"))]
 if bad:
     sys.exit("Refusing to register: missing or still-placeholder in .env: " + ", ".join(bad))
+if not env["COGNITO_USER_POOL_ID"].startswith(env["COGNITO_REGION"] + "_"):
+    sys.exit("Refusing to register: COGNITO_USER_POOL_ID should start with COGNITO_REGION + '_'")
 values = {
     "__IMAGE__": image,
     "__ACCOUNT_ID__": account_id,
@@ -62,7 +68,9 @@ values = {
     "__RDS_MASTER_PASSWORD__": env["RDS_MASTER_PASSWORD"],
     "__APP_RUNTIME_DB_PASSWORD__": env["APP_RUNTIME_DB_PASSWORD"],
     "__OPENAI_API_KEY__": env["OPENAI_API_KEY"],
-    "__UPLOAD_API_KEY__": env["UPLOAD_API_KEY"],
+    "__COGNITO_REGION__": env["COGNITO_REGION"],
+    "__COGNITO_USER_POOL_ID__": env["COGNITO_USER_POOL_ID"],
+    "__COGNITO_APP_CLIENT_ID__": env["COGNITO_APP_CLIENT_ID"],
 }
 
 

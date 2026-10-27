@@ -2,7 +2,7 @@
 
 (Repurposed in place from "Blaq Blob" / South St. Petersburg Infrastructure Intelligence — DECISIONS #158. That tool's crawlers, Granicus transcription pipeline, and civic-records corpus were dropped; its grounded-RAG core, upload path, and AWS deploy were kept.)
 
-A multi-organization grant application tool for the Florida coalition, administered by the Florida Food Policy Council (FLFPC; Erica Hall, initial admin lead). It uses each organization's authorized documents to discover funding opportunities, assess fit, draft application fields one at a time with cited sources, route drafts through separate writer → partner → reviewer → approver steps, and track submissions and award obligations. This is a real operational tool that has to outlast any one person's day-to-day involvement, so whoever inherits it can run it without a live walkthrough (DECISIONS #136).
+A multi-tenant fundraising platform for nonprofits, offered as a subscription (DECISIONS #165). Each organization is an isolated tenant with its own logins, documents, application history and funder relationships. The Florida coalition, administered by the Florida Food Policy Council (FLFPC; Erica Hall, initial admin lead), is the first customer, and its requirements still bind. It uses each organization's authorized documents to discover funding opportunities, assess fit, draft application fields one at a time with cited sources, route drafts through separate writer → partner → reviewer → approver steps, and track submissions and award obligations. This is a real operational tool that has to outlast any one person's day-to-day involvement, so whoever inherits it can run it without a live walkthrough (DECISIONS #136).
 
 The requirements source is the "Coalition Grant App — Requirements Questionnaire" (Oct. 6, 2026, Erica's completed draft). Items it marks "Proposed" or "Confirm" are not settled requirements. Don't build on them as if they were; record the working assumption in DECISIONS.md.
 
@@ -24,12 +24,12 @@ Every non-trivial design decision gets a numbered `DECISIONS.md` entry before or
 - PostgreSQL + pgvector (embeddings/retrieval)
 - Docker + docker-compose (local), AWS Fargate/ECS + RDS (deploy)
 - Embedding/LLM provider: **OpenAI** (`text-embedding-3-small`, `gpt-4o-mini`) — DECISIONS #13. The API does not train on submitted data by default; questionnaire 8.5 still requires checking each funder's and partner's terms before their documents are processed.
-- Auth: **AWS Cognito** with MFA (authenticator app / passkeys) — DECISIONS #158. Not built yet (Phase B).
+- Auth: **AWS Cognito** with MFA (authenticator app / passkeys) — DECISIONS #158. API-side token checks, the `users` table, tenancy, invitations and the bootstrap tool are built (Phase B, #164-#175). Browser sign-in (B5) is waiting on HTTPS (#162).
 
 ## Phases (DECISIONS #158)
 
 - **A** — Strip the civic-records tool down to its reusable core. ← done in #158
-- **B** — Cognito auth + MFA, organizations, users, roles, time-limited per-application access.
+- **B** — Cognito auth + MFA, organizations, users, roles, invitations, consented support access, audit. ← built and tested (#164-#175), not yet deployed; B5 browser login is blocked on HTTPS. Time-limited per-application assignments moved to D (#166).
 - **C** — Per-organization document vault; retrieval isolated per org (no cross-org leaks through search, exports, or AI answers).
 - **D** — Opportunities, master-spreadsheet import/export, applications (LOI ↔ full), fields with word/char limits.
 - **E** — Field-by-field cited drafting, review/approval chain, comments, version history, audit log.
@@ -41,8 +41,10 @@ The detailed design plan is kept locally, not committed.
 
 - No Kubernetes, no Terraform/IaC this cycle (DECISIONS #2).
 - One AWS deploy target (Fargate) (DECISIONS #1).
-- **No real partner documents on any deployed instance until Phase C's per-org retrieval scoping and its cross-org leak tests have shipped.** Phase B's logins alone aren't enough: without C, any signed-in user's `/query` searches every org's documents. Today the only gate is a single shared upload key (DECISIONS #144), and `/query` and `/sources` are open. That's fine for test data and wrong for EINs, financials, or banking details.
-- **The app never submits applications or sends email in the first version** — it prepares packages for a designated human submitter (questionnaire 7.1, 3.3).
+- **No real partner documents on any deployed instance until Phase C's per-org retrieval scoping and its cross-org leak tests have shipped.** Phase B's logins alone aren't enough: without C, any signed-in user's `/query` searches every org's documents. The deployed instance also needs HTTPS on a stable hostname first (DECISIONS #162): today it's plain http on a changing IP, and Cognito won't redirect to it. Today every API route except `/health` needs a signed-in user (DECISIONS #169), but there is no per-org scoping: any signed-in user's `/query` searches every org's documents, and the deployed instance can't be signed into from a browser until HTTPS exists. That's fine for test data and wrong for EINs, financials, or banking details.
+- **The app prepares; the org acts.** It never submits applications and never emails funders on an org's behalf. It drafts, packages, reminds and gives copy-ready answers (questionnaire 7.1, #165). System notifications to the app's own users (deadlines, assignments) are allowed (#159).
+- **Every org is a tenant like any other.** No special-casing FLFPC in code. Private data carries `org_id`. Data shared across tenants comes from public sources only (#165).
+- **"Learning" is per-org memory, never model training** on client data (questionnaire 8.5, #165).
 - **The app never stores funder-portal passwords, recovery codes, or MFA secrets**, and credentials are never available to the AI drafting process (questionnaire 9.3, 9.4).
 - **Generated text never invents** achievements, metrics, partner commitments, or future funding. Every factual claim traces to a cited, authorized source; anything without a source gets flagged instead of written (questionnaire 5.4).
 - A writer can never approve their own application (questionnaire 2.1).
@@ -51,4 +53,4 @@ The detailed design plan is kept locally, not committed.
 ## Ongoing-operation notes
 
 - Fargate/RDS run 24/7 at real (if small) cost; OpenAI usage scales with drafting volume (working assumption: 5–10 applications/month, questionnaire 3.1).
-- The live RDS still holds the old civic-records corpus and the orphaned `crawl_runs` / `granicus_transcription_jobs` tables, and the deployed API image is still the pre-#158 build. See DECISIONS #158 for the AWS cleanup that's waiting on explicit sign-off.
+- The live RDS still holds the old civic-records corpus and the orphaned `crawl_runs` / `granicus_transcription_jobs` tables, and the deployed API still runs the Phase A build (image `1c3a804`, task definition `:7`, #161/#167), whose schema stops at migration 0003. The Phase B release is not deployed; follow `infra/DEPLOY_RUNBOOK.md`, and note that once migration 0004 or later is applied the `:7` build can no longer start (it refuses a database newer than itself).
