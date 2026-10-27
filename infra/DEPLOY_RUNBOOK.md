@@ -19,6 +19,8 @@ For whoever is running this next, with no one to ask. Do the steps in order. Ste
 
 ## Step 0: IAM (admin login in CloudShell or the console, once, before step 2)
 
+**Done 2026-10-27 (DECISIONS #176).** The role and its `invite-people` policy exist. The PassRole command was **not needed**: per `simulate-principal-policy`, the deploy user may already pass this role when the receiving service is `ecs-tasks.amazonaws.com` (`allowed`, via `AmazonECS_FullAccess`). `infra/deploy-user-passrole-policy.json` stays only as a fallback if that policy is ever detached. The steps below are kept for rebuilding the account.
+
 The api now needs its own narrow role so it can create invited people in Cognito. Three templates hold the exact policies, with `__ACCOUNT_ID__` and `__USER_POOL_ID__` placeholders:
 
 - `infra/api-task-role-trust-policy.json` (who may use the role: ECS tasks in this account)

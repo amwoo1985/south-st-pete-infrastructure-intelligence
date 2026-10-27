@@ -2138,3 +2138,12 @@ Decision (Amber, 2026-10-21): the global cap of 30 invitations per rolling 24 ho
 - Also corrected in README: DECISIONS #140 (the IAM tag) is closed (#168); it was still listed as open.
 Date: 2026-10-21
 
+
+## #176 — Phase B IAM done: api task role created, deploy user's Cognito policy narrowed to one pool
+
+Decision (Amber, 2026-10-27). Amber ran the commands as the admin IAM user in CloudShell. Claude checked the results read-only.
+- **Role `south-st-pete-api-task-role`** created. Its trust policy, as passed to `create-role`, limits it to ECS tasks in this account (conditions on `aws:SourceAccount` and `aws:SourceArn`). Its inline policy `invite-people` allows only `cognito-idp:AdminCreateUser` and `cognito-idp:ListUsers` on pool `us-east-1_0KsvGD5bp`, and it was read back after it was written. **Not yet exercised at runtime.** The first real invitation after the deploy is the proof.
+- **PassRole: no new grant.** `simulate-principal-policy` for the deploy user passing this role to `ecs-tasks.amazonaws.com` returned `allowed`, through the attached `AmazonECS_FullAccess`. `infra/deploy-user-passrole-policy.json` is kept only as a fallback.
+- **Managed policy `coalition-grant-app-cognito`** is now at v3 (default). Its pool-level actions are scoped to the one pool's ARN instead of `userpool/*`. v1 and v2 remain for rollback. Afterwards the deploy user could still describe and list the pool, and the pool still showed MFA `ON` and admin-only sign-up.
+- **Noted, not changed:** the deploy user also holds `AmazonRDSFullAccess`, `AmazonVPCFullAccess`, `AmazonSNSFullAccess` and `IAMUserChangePassword`. That's broad for a key used by scripts. Trimming it is a later least-privilege pass.
+Date: 2026-10-27
