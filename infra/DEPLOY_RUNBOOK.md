@@ -6,7 +6,7 @@ For whoever is running this next, with no one to ask. Do the steps in order. Ste
 
 - The `south-st-pete-api` service runs task definition `:7`, image `1c3a804` (the Phase A build, DECISIONS #161/#167), against the encrypted RDS instance `applied-db`.
 - The database schema is at migration **0003**. This release applies **0004** (users), **0005** (organizations, memberships, support access, audit log) and **0006** (invitations).
-- Nobody can sign in from a browser yet (that needs HTTPS on a stable hostname, DECISIONS #162), so after this release the deployed instance cannot upload or query. That is expected (DECISIONS #169). No real partner documents go on it until Phase C.
+- This release also adds the Cloudflare Tunnel (DECISIONS #177, #178): `https://app.getapplied.org` reaches the api through a `cloudflared` container in the api task, and step 5b then closes the api's inbound firewall. The tunnel gives HTTPS and a stable hostname, but the browser sign-in pages are still B5, so nobody can sign in from a browser yet (DECISIONS #162), and so after this release the deployed instance cannot upload or query. That is expected (DECISIONS #169). No real partner documents go on it until Phase C.
 
 ## Before you start
 
@@ -63,7 +63,28 @@ The task pulls cloudflared from this account's private ECR by digest, so a Docke
 ## Steps 1 to 6: ship the release (deploy user)
 
 1. `bash infra/build_push_app_image.sh` builds and pushes the image and prints the tag (the git short SHA).
-2. `IMAGE_TAG=<sha> bash infra/register_app_taskdefs.sh` registers the `api` and `migrate` task definitions. It refuses if any required `.env` value (including `COGNITO_*`) is missing or still a placeholder. The api definition now names `south-st-pete-api-task-role`; the migrate one does not.
+2. `IMAGE_TAG=<sha> bash infra/register_app_taskdefs.sh` registers the `api` and `migrate` task definitions. It refuses if any required `.env` value (including `COGNITO_*` and `CLOUDFLARE_TUNNEL_SECRET_ARN`) is missing or still a placeholder, if `.env` still has a `CLOUDFLARE_TUNNEL_TOKEN` line, or if the pinned cloudflared image is not in ECR (step 0c). It registers three definitions: `api` (now with the cloudflared container), `migrate`, and `tunnel-check` (step 2b). The api definition now names `south-st-pete-api-task-role`; the migrate one does not.
+**2b. Rehearse the tunnel before the migration (still reversible).** `register_app_taskdefs.sh` also registered `south-st-pete-tunnel-check`: the cloudflared container alone, with the same pinned image and the same secret. Running it once proves the token, the secret's ARN, the execution role's permission (and its PassRole), the platform and the outbound connection to Cloudflare, **without touching the database and without any api behind the hostname**. It does **not** test the real task's start order, health check, shared memory or the essential-container behavior; the firewall staying open until step 5 is what bounds that risk (DECISIONS #178).
+
+The deploy user's rights for `ecs:RunTask`, `ecr:DescribeImages` and `iam:PassRole` on the execution role are **not verified** (step 0b.6 simulates the last one); a refusal here means the admin login runs the command instead.
+
+Precondition: `curl -sS -o /dev/null -w '%{http_code}\n' https://app.getapplied.org/health` prints **530**. Then:
+
+```
+NETWORK="$(aws ecs describe-services --cluster south-st-pete-dev --services south-st-pete-api --query 'services[0].networkConfiguration' --output json)"
+TASK_ARN="$(aws ecs run-task --cluster south-st-pete-dev --task-definition south-st-pete-tunnel-check --launch-type FARGATE --network-configuration "$NETWORK" --query 'tasks[0].taskArn' --output text)"
+aws ecs wait tasks-running --cluster south-st-pete-dev --tasks "$TASK_ARN"
+```
+
+Wait two minutes, then **all four** must hold:
+
+1. `aws ecs describe-tasks --cluster south-st-pete-dev --tasks "$TASK_ARN" --query 'tasks[0].[lastStatus,stoppedReason]' --output text` shows `RUNNING` and `None` for the stop reason (`None` means no stop reason).
+2. CloudWatch log group `/ecs/south-st-pete-app`, stream prefix `cloudflared-check`, shows registered tunnel connections.
+3. `curl -sS -o /dev/null -w '%{http_code}\n' https://app.getapplied.org/health` no longer prints 530 (expected: **502**, a connector with no api behind it; the exact code is not verified, anything but 530 means connected).
+4. **Token check, without printing anything:** `aws logs filter-log-events --log-group-name /ecs/south-st-pete-app --log-stream-name-prefix cloudflared-check --filter-pattern eyJ --query 'length(events)'` must print **0** (`eyJ` is how a token starts; never print the events themselves). If it is not 0, the token leaked into the logs: rotate it again (step 0b), and delete those log streams (or set the group's retention to a day) so the old value does not sit there. Whether cloudflared ever logs the token is unverified; this is the check.
+
+Then **stop the rehearsal task at once** (it reuses the live token and would answer real requests with nothing behind them): `aws ecs stop-task --cluster south-st-pete-dev --task "$TASK_ARN"`, and confirm the hostname prints 530 again (retry for about a minute; the edge can lag). If `wait tasks-running` errors, the task stopped: read `stoppedReason` from `describe-tasks` (and stop the task if it is somehow still running). If any check fails: fix (usually the secret ARN in `.env`, the role policy, or a wrong token), re-register, and run again. Nothing irreversible has happened yet. Record the task definition revisions for DECISIONS.
+
 3. **Take a snapshot first, then migrate.** `up` cannot be undone (see "If something goes wrong"). The database also has 7-day automated backups (DECISIONS #167), but a named snapshot is easier to find:
    ```
    aws rds create-db-snapshot --db-instance-identifier applied-db --db-snapshot-identifier applied-pre-phase-b-<date>
@@ -77,12 +98,26 @@ The task pulls cloudflared from this account's private ECR by digest, so a Docke
    aws ecs update-service --cluster south-st-pete-dev --service south-st-pete-api --task-definition south-st-pete-api:<new revision>
    aws ecs wait services-stable --cluster south-st-pete-dev --services south-st-pete-api
    ```
-5. The public IP changes on each restart. Find it through the task's network interface, then check:
-   - `GET /health` answers `{"status":"ok","db":"ok"}`.
-   - `POST /query` without a token answers 401 `Sign-in required.`
-   - CloudWatch log group `/ecs/south-st-pete-app`, stream prefix `api`: the container started and shows no `MigrationError`.
+   The new api task has two containers. If it never becomes stable, read the `cloudflared` log stream first (bad secret ARN or role policy are the usual causes). The old task keeps running meanwhile, and the firewall is still open.
+5. Check through the tunnel. Do not start until `aws ecs wait services-stable` has returned **and** the new task shows RUNNING with both containers (`south-st-pete-api` and `cloudflared`):
+   - `curl -sS https://app.getapplied.org/health` answers `{"status":"ok","db":"ok"}`.
+   - `curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://app.getapplied.org/query -H 'content-type: application/json' -d '{"question":"x"}'` prints 401 (no token). Any other code, including a Cloudflare challenge page, is a failure to investigate (how Cloudflare treats curl here is unverified).
+   - CloudWatch log group `/ecs/south-st-pete-app` has streams with prefix `api` (started, no `MigrationError`) and `cloudflared` (registered connections, **no `eyJ` text**).
+   - The firewall is still open at this point, so if the sidecar misbehaves the api is still reachable at its task IP (find it through the task's network interface; it changes on every restart) and nothing is lost.
 
    You cannot test an invitation on the deployed instance until browser sign-in exists. If the task role is wrong, the first real invitation fails with a 502 and the api log shows `cognito ListUsers failed: AccessDeniedException` (or `cognito AdminCreateUser failed: ...`). Fix the role policy in IAM; new credentials reach the task within minutes, no redeploy.
+
+   **Until the old civic-records corpus is removed from RDS (DECISIONS #158), the sign-in requirement (401) is the only thing between the internet and that corpus.** Do not weaken it.
+
+5b. **Close the api's inbound firewall** (only after every check in step 5 has passed in the same sitting). Needs EC2 rights: the deploy user's are unverified, so use the admin login if it is refused.
+   1. Find the security group: `aws ecs describe-services --cluster south-st-pete-dev --services south-st-pete-api --query 'services[0].networkConfiguration'`. Do not guess the id.
+   2. Save the "before" **somewhere durable outside the repo and not /tmp** (Amber's private storage; below it is called `<keep>`): `aws ec2 describe-security-groups --group-ids <sg> --output json > <keep>/sg-before.json`, and the inbound rules alone, which is the file the revoke and the rollback both use: `aws ec2 describe-security-groups --group-ids <sg> --query 'SecurityGroups[0].IpPermissions' --output json > <keep>/sg-ingress.json`.
+   3. Read it. Expected: exactly one inbound rule, tcp 8000 from `0.0.0.0/0`. That is inferred from old history (old deploy history in DECISIONS.md), not known. If it has anything else (more sources, `::/0`, other ports), stop and decide with Amber what to revoke.
+   4. Check what else uses this group: `aws ec2 describe-network-interfaces --filters Name=group-id,Values=<sg> --query 'NetworkInterfaces[].Description'`, and `aws ec2 describe-security-groups --filters Name=ip-permission.group-id,Values=<sg>` for rules in other groups (RDS) that name it as a source. Revoking *inbound* rules of this group does not affect those, but write down what you see. Egress must stay open (`IpPermissionsEgress` allows all): cloudflared dials out on 7844.
+   5. **Positive control:** `curl -m 5 http://<task public IP>:8000/health` must answer now. If it does not, your timeout test below proves nothing.
+   6. Revoke exactly what 5b.2 saved: `aws ec2 revoke-security-group-ingress --group-id <sg> --ip-permissions file://<keep>/sg-ingress.json`.
+   7. Verify (the "step 5" checks below are the main step 5): `aws ec2 describe-security-groups --group-ids <sg> --query 'SecurityGroups[0].IpPermissions'` prints `[]`; `curl -m 5 http://<task public IP>:8000/health` now times out; `curl -sS https://app.getapplied.org/health` still answers ok.
+
 6. Seat Amber and Erica, below.
 
 ## Step 6: seat Amber and Erica (deploy user)
@@ -114,6 +149,17 @@ Amber is a platform admin and Erica is **not**; a person who needs both uses two
 - **`run_admin.sh` says `No module named app.admin`:** the migrate task definition still points at an older image; redo steps 1 and 2.
 - **`refused: ...`** from the tool is a rule doing its job; the message says which. The tool never changes anything without `--apply`.
 
+## Rolling back the tunnel (DECISIONS #178)
+
+The tunnel changes how people reach the api, not the database, so its rollback is separate from the migration rollback above. Order matters: **restore the firewall first, then verify, then touch the task definition.**
+
+- **Before step 5b (firewall still open):** nothing about exposure has changed. If cloudflared is the problem, register without it: `TUNNEL_SIDECAR=off IMAGE_TAG=<same sha> bash infra/register_app_taskdefs.sh` (it prints `NO TUNNEL SIDECAR` and registers only api and migrate), then `update-service` to that new api revision. Same Phase B image; the api is reachable at its task IP exactly as before.
+- **After step 5b:** (1) re-add the saved rules: `aws ec2 authorize-security-group-ingress --group-id <sg> --ip-permissions file://<keep>/sg-ingress.json` (the same file the revoke used); (2) verify `curl -m 5 http://<task public IP>:8000/health` answers; (3) only then, if needed, register with `TUNNEL_SIDECAR=off` and update the service as above. Leaving `TUNNEL_SIDECAR` unset on any later deploy puts the sidecar back (and then needs `CLOUDFLARE_TUNNEL_SECRET_ARN`).
+- **Cut public access without touching AWS:** in Cloudflare, delete the public hostname (immediate), or refresh the tunnel token. A refresh leaves the secret in Secrets Manager holding the *old* token, so any replacement task cannot connect until the secret is updated (step 0b); whether a refresh also drops live connectors is not verified, hence the connections-delete call in step 0b. Because cloudflared is essential, the task will probably exit and be replaced repeatedly (not verified: cloudflared might keep retrying instead); follow with the two bullets above or set the service's desired count to 0.
+- **Never** point the service back at task definition `:7` once step 3's `up` has run (see above).
+- A Cloudflare outage takes the app down; the container health check makes ECS replace the task while Cloudflare is unreachable, which does not help but does no harm.
+- If a *later* deploy forgets the security-group state: the group stays closed on purpose. The tunnel is the way in.
+
 ## What this does not cover
 
-HTTPS and a hostname for browser sign-in (B5), per-organization document walls (Phase C), and moving Cognito email to SES. The invitation email path is capped at 30 invitations a day across all customers because Cognito's built-in sender allows 50 emails a day for the whole AWS account; revisit that (count only invitations that send an email, or move to SES) before onboarding more tenants (DECISIONS #172, #175).
+The browser sign-in pages and the Cognito callback URLs for `https://app.getapplied.org` (B5; HTTPS and the hostname now exist through the tunnel, and the callback update must send the whole app-client configuration back because the update call resets omitted settings, DECISIONS #162), per-organization document walls (Phase C), and moving Cognito email to SES. The invitation email path is capped at 30 invitations a day across all customers because Cognito's built-in sender allows 50 emails a day for the whole AWS account; revisit that (count only invitations that send an email, or move to SES) before onboarding more tenants (DECISIONS #172, #175).
