@@ -224,3 +224,11 @@ def test_mirror_script_refuses_on_ambiguous_ecr_state(tmp_path, describe_out, de
                           capture_output=True, text=True, env=env, cwd=ROOT)
     assert proc.returncode == 1 and expect_text in proc.stderr
     assert "DOCKER-WAS-CALLED" not in proc.stderr  # nothing pushed on an ambiguous state
+
+
+def test_tunnel_token_policy_template_is_one_read_on_one_placeholder_resource():
+    pol = json.loads((ROOT / "infra" / "tunnel-token-policy.json").read_text())
+    (stmt,) = pol["Statement"]
+    assert stmt["Effect"] == "Allow"
+    assert stmt["Action"] == "secretsmanager:GetSecretValue"  # one action, no list, no wildcard
+    assert stmt["Resource"] == "__TUNNEL_TOKEN_SECRET_ARN__"  # a placeholder, never a literal or '*'
