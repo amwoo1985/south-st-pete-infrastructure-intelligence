@@ -2147,3 +2147,16 @@ Decision (Amber, 2026-10-27). Amber ran the commands as the admin IAM user in Cl
 - **Managed policy `coalition-grant-app-cognito`** is now at v3 (default). Its pool-level actions are scoped to the one pool's ARN instead of `userpool/*`. v1 and v2 remain for rollback. Afterwards the deploy user could still describe and list the pool, and the pool still showed MFA `ON` and admin-only sign-up.
 - **Noted, not changed:** the deploy user also holds `AmazonRDSFullAccess`, `AmazonVPCFullAccess`, `AmazonSNSFullAccess` and `IAMUserChangePassword`. That's broad for a key used by scripts. Trimming it is a later least-privilege pass.
 Date: 2026-10-27
+
+## #177 — Applied gets its own domain, `getapplied.org`; HTTPS through a Cloudflare Tunnel (supersedes #167's subdomain plan)
+
+Decision (Amber, 2026-10-27):
+- **Own domain.** Amber registered `getapplied.org` through Cloudflare Registrar ($11.50/yr renewal, as shown at purchase). Applied will not use a subdomain of her existing domain. This replaces the "Domain" item in #167, so the product carries no association with that site. `getapplied.com` was taken; `.co`/`.services` were rejected for typo risk toward the `.com` and higher renewals.
+- **`.org` is unrestricted.** Applied is a paid subscription service, and its site, ToS and pricing must not imply that Applied itself is a nonprofit.
+- **Hostname:** the app will be served at `app.getapplied.org`. The bare `getapplied.org` is kept free for a marketing page.
+- **HTTPS path: a Cloudflare Tunnel** (named `applied-api`), chosen over an AWS load balancer + certificate for cost: no ALB charge, and TLS is handled at Cloudflare. A `cloudflared` sidecar in the api task connects **outbound only**, so the api's security group can close all inbound traffic. The task **keeps its public IP**: in a public subnet without one, it couldn't reach ECR, OpenAI, Cognito or Cloudflare, and a NAT gateway would cost more than the ALB this choice avoids. The tunnel token is a secret. It will live in local `.env` and must reach the task as a secret (Secrets Manager, preferred), not as a plain task-definition environment value anyone with describe rights can read. Never in the image or committed config (`.claude/rules/deploy.md`). The sidecar design gets a deploy-review before any code.
+- **Data processor:** Cloudflare terminates TLS, so it sees requests (tokens, uploaded documents) in plaintext at its edge. It joins OpenAI and AWS on the list of processors to disclose in the privacy policy (questionnaire 8.5).
+- **Still open, not unblocked by this entry:** the tunnel isn't created yet. B5 needs `https://app.getapplied.org` added to the Cognito app client's callback and sign-out URLs: send the full client config back, since the update call resets omitted settings to defaults (#162). HTTPS doesn't lift the Phase C gate: no real partner documents until per-org walls ship.
+- **For a successor:** the domain and the tunnel are in Amber's Cloudflare account, and she holds the login. Auto-renew status: to confirm.
+- **Who does what:** Amber sets up the tunnel and DNS in the Cloudflare dashboard (assisted by her browser extension, under a prompt that forbids it from reading the token or touching other domains). Claude does no Cloudflare writes.
+Date: 2026-10-27
